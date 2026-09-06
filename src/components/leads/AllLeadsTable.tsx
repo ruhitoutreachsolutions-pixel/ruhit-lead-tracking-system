@@ -479,16 +479,17 @@ export const AllLeadsTable: React.FC<AllLeadsTableProps> = ({
 
   return (
     <div className="space-y-3">
-      {/* 1. LIST-WISE NAVIGATION TABS */}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#1E3A5F]/60 pb-2.5">
-        <div className="flex items-center space-x-2 overflow-x-auto py-1 max-w-3xl">
+      {/* 1. LIST-WISE NAVIGATION TABS & ACTION TOOLBAR */}
+      <div className="flex items-center justify-between gap-3 border-b border-[#1E3A5F]/60 pb-2.5">
+        {/* Scrollable list tabs container (flex-1 min-w-0 ensures no wrapping of right action buttons) */}
+        <div className="flex items-center space-x-2 overflow-x-auto scrollbar-none py-1 flex-1 min-w-0 pr-2">
           {/* All Leads Tab */}
           <button
             onClick={() => {
               setActiveListTab('all');
               setCurrentPage(1);
             }}
-            className={`flex items-center space-x-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 ${
+            className={`flex items-center space-x-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 whitespace-nowrap ${
               activeListTab === 'all'
                 ? 'bg-[#00C2FF] text-black shadow-md font-bold'
                 : 'bg-[#111827] text-[#94A3B8] hover:text-white border border-[#1E3A5F]'
@@ -512,7 +513,7 @@ export const AllLeadsTable: React.FC<AllLeadsTableProps> = ({
             const listCount = leads.filter((l) => l.list_ids?.includes(list.id)).length;
             const isActive = activeListTab === list.id;
             return (
-              <div key={list.id} className="flex items-center group shrink-0">
+              <div key={list.id} className="flex items-center group shrink-0 whitespace-nowrap">
                 <button
                   onClick={() => {
                     setActiveListTab(list.id);
@@ -524,7 +525,7 @@ export const AllLeadsTable: React.FC<AllLeadsTableProps> = ({
                       : 'bg-[#111827] text-[#94A3B8] hover:text-white border border-[#1E3A5F]'
                   }`}
                 >
-                  <span className="truncate max-w-[150px]">{list.name}</span>
+                  <span className="truncate max-w-[160px]">{list.name}</span>
                   <span
                     className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold ${
                       isActive ? 'bg-black/20 text-black' : 'bg-[#1E3A5F]/60 text-[#00E5A0]'
@@ -552,53 +553,48 @@ export const AllLeadsTable: React.FC<AllLeadsTableProps> = ({
           {/* + New List Button */}
           <button
             onClick={() => setIsNewListModalOpen(true)}
-            className="flex items-center space-x-1 px-3 py-1.5 bg-[#111827] hover:bg-[#1E3A5F]/60 text-[#00C2FF] border border-[#00C2FF]/40 rounded-lg text-xs font-semibold transition-all shrink-0 shadow-sm"
+            className="flex items-center space-x-1.5 px-3 py-1.5 bg-[#111827] hover:bg-[#1E3A5F]/60 text-[#00C2FF] border border-[#00C2FF]/40 rounded-lg text-xs font-semibold transition-all shrink-0 whitespace-nowrap shadow-sm"
           >
             <FolderPlus className="w-3.5 h-3.5" />
             <span>+ New List</span>
           </button>
         </div>
 
-        {/* Right Toolbar Action Buttons */}
+        {/* Right Toolbar Action Buttons (Single instance of each button, no duplicates) */}
         <div className="flex items-center space-x-2 shrink-0">
           {permissions.can_export_leads && (
             <button
               onClick={handleExportCSV}
-              className="flex items-center space-x-1.5 px-3 py-1.5 bg-[#111827] hover:bg-[#1E3A5F]/60 text-[#00C2FF] border border-[#00C2FF]/40 rounded-lg text-xs font-semibold transition-all shadow-sm"
+              className="flex items-center space-x-1.5 px-3 py-1.5 bg-[#111827] hover:bg-[#1E3A5F]/60 text-[#00C2FF] border border-[#00C2FF]/40 rounded-lg text-xs font-semibold transition-all shadow-sm shrink-0 whitespace-nowrap"
               title="Export leads to CSV file"
             >
               <Download className="w-3.5 h-3.5" />
               <span>Export CSV</span>
             </button>
           )}
-          {onOpenAddLead && (
+
+          {permissions.can_bulk_import && (
+            <button
+              onClick={() => {
+                if (onOpenBulkUpload) onOpenBulkUpload();
+                else setIsLocalImportOpen(true);
+              }}
+              className="flex items-center space-x-1.5 px-3 py-1.5 bg-[#111827] hover:bg-[#182234] text-white border border-[#1E3A5F] rounded-lg transition-all text-xs shadow-sm hover:border-[#00C2FF]/60 shrink-0 whitespace-nowrap"
+            >
+              <Upload className="w-3.5 h-3.5 text-[#00C2FF]" />
+              <span>Bulk Upload</span>
+            </button>
+          )}
+
+          {permissions.can_create_edit_leads && onOpenAddLead && (
             <button
               onClick={onOpenAddLead}
-              className="flex items-center space-x-1 px-3 py-1.5 bg-[#00E5A0] hover:bg-[#00E5A0]/90 text-black font-semibold text-xs rounded-lg transition-all shadow-sm"
+              className="flex items-center space-x-1.5 px-3.5 py-1.5 bg-[#00E5A0] hover:bg-[#00E5A0]/90 text-black font-semibold text-xs rounded-lg transition-all shadow-sm shrink-0 whitespace-nowrap"
             >
               <Plus className="w-3.5 h-3.5 stroke-[3]" />
               <span>Add Single Lead</span>
             </button>
           )}
-
-          <button
-            onClick={() => {
-              if (onOpenBulkUpload) onOpenBulkUpload();
-              else setIsLocalImportOpen(true);
-            }}
-            className="flex items-center space-x-1.5 px-3 py-1.5 bg-[#111827] hover:bg-[#182234] text-white border border-[#1E3A5F] rounded-lg transition-all text-xs shadow-sm hover:border-[#00C2FF]/60"
-          >
-            <Upload className="w-3.5 h-3.5 text-[#00C2FF]" />
-            <span>Bulk Upload</span>
-          </button>
-
-          <button
-            onClick={handleExportCSV}
-            className="flex items-center space-x-1.5 px-3 py-1.5 bg-[#111827] hover:bg-[#182234] text-white border border-[#1E3A5F] rounded-lg transition-all text-xs shadow-sm hover:border-[#00C2FF]/60"
-          >
-            <Download className="w-3.5 h-3.5 text-[#00C2FF]" />
-            <span>Export CSV</span>
-          </button>
         </div>
       </div>
 

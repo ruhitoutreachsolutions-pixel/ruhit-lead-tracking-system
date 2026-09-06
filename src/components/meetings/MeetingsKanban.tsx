@@ -217,10 +217,10 @@ export const MeetingsKanban: React.FC<MeetingsKanbanProps> = ({ onSelectLead }) 
         </div>
 
         {/* View Mode Toggle Buttons */}
-        <div className="flex items-center space-x-1 bg-[#0A0A0A] border border-[#1E3A5F] p-1 rounded-xl text-xs">
+        <div className="flex items-center space-x-1 bg-[#0A0A0A] border border-[#1E3A5F] p-1 rounded-xl text-xs shrink-0">
           <button
             onClick={() => setViewMode('kanban')}
-            className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg font-medium transition-all ${
+            className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg font-medium transition-all shrink-0 whitespace-nowrap ${
               viewMode === 'kanban'
                 ? 'bg-[#00C2FF] text-black font-bold shadow-md'
                 : 'text-[#94A3B8] hover:text-white'
@@ -231,7 +231,7 @@ export const MeetingsKanban: React.FC<MeetingsKanbanProps> = ({ onSelectLead }) 
           </button>
           <button
             onClick={() => setViewMode('list')}
-            className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg font-medium transition-all ${
+            className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg font-medium transition-all shrink-0 whitespace-nowrap ${
               viewMode === 'list'
                 ? 'bg-[#00C2FF] text-black font-bold shadow-md'
                 : 'text-[#94A3B8] hover:text-white'

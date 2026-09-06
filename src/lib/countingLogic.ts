@@ -274,9 +274,19 @@ export function calculateTeamReport(
 export function calculateDayByDayReport(
   leads: Lead[],
   activities: LeadActivity[] = [],
-  daysBack: number = 14
+  daysBack: number = 14,
+  userId?: string
 ): DayReportRow[] {
   const rowMap = new Map<string, DayReportRow>();
+
+  // Filter leads and activities by userId if specified and not 'all'
+  const filteredLeads = userId && userId !== 'all'
+    ? leads.filter((l) => l.assigned_user_id === userId)
+    : leads;
+
+  const filteredActivities = userId && userId !== 'all'
+    ? activities.filter((a) => a.user_id === userId)
+    : activities;
 
   // Initialize dates
   const now = new Date();
@@ -285,7 +295,10 @@ export function calculateDayByDayReport(
     d.setDate(d.getDate() - i);
     const dateStr = d.toISOString().split('T')[0]; // YYYY-MM-DD
     rowMap.set(dateStr, {
+      id: `auto_${dateStr}_${userId || 'all'}`,
       date: dateStr,
+      userId: userId && userId !== 'all' ? userId : undefined,
+      userName: userId && userId !== 'all' ? undefined : 'Team / All Reps',
       meetingScheduled: 0,
       meetingDone: 0,
       meetingCount: 0,
@@ -296,7 +309,7 @@ export function calculateDayByDayReport(
   }
 
   // Aggregate leads milestones
-  for (const lead of leads) {
+  for (const lead of filteredLeads) {
     if (lead.meeting_scheduled_at) {
       const dStr = lead.meeting_scheduled_at.split('T')[0];
       const entry = rowMap.get(dStr);
@@ -320,7 +333,7 @@ export function calculateDayByDayReport(
   }
 
   // Aggregate activities
-  for (const act of activities) {
+  for (const act of filteredActivities) {
     const dStr = act.created_at.split('T')[0];
     const entry = rowMap.get(dStr);
     if (entry) {

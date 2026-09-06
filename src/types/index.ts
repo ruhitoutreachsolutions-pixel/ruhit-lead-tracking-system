@@ -291,13 +291,17 @@ export interface TeamReportRow {
 }
 
 export interface DayReportRow {
+  id?: string;
   date: string; // YYYY-MM-DD or MM/DD/YY
+  userId?: string;
+  userName?: string;
   meetingScheduled: number;
   meetingDone: number;
   meetingCount: number;
   pendingYes: number;
   whatsapp: number;
   calls: number;
+  notes?: string;
 }
 
 export interface EmailCopy {

@@ -277,12 +277,12 @@ export const SettingsView: React.FC = () => {
       </div>
 
       {/* Tabs */}
-      <div className="flex items-center space-x-2 border-b border-[#1E3A5F] pb-2 text-xs">
+      <div className="flex items-center space-x-2 border-b border-[#1E3A5F] pb-2 text-xs overflow-x-auto scrollbar-none w-full">
         <button
           onClick={() => setActiveSection('accounts')}
-          className={`flex items-center space-x-1.5 px-3 py-2 rounded-lg font-semibold transition-all ${
+          className={`flex items-center space-x-1.5 px-3 py-2 rounded-lg font-semibold transition-all shrink-0 whitespace-nowrap ${
             activeSection === 'accounts'
-              ? 'bg-[#111827] text-[#00C2FF] border border-[#00C2FF]/30'
+              ? 'bg-[#111827] text-[#00C2FF] border border-[#00C2FF]/30 font-bold'
               : 'text-[#94A3B8] hover:text-white'
           }`}
         >
@@ -292,9 +292,9 @@ export const SettingsView: React.FC = () => {
 
         <button
           onClick={() => setActiveSection('brands')}
-          className={`flex items-center space-x-1.5 px-3 py-2 rounded-lg font-semibold transition-all ${
+          className={`flex items-center space-x-1.5 px-3 py-2 rounded-lg font-semibold transition-all shrink-0 whitespace-nowrap ${
             activeSection === 'brands'
-              ? 'bg-[#111827] text-[#00C2FF] border border-[#00C2FF]/30'
+              ? 'bg-[#111827] text-[#00C2FF] border border-[#00C2FF]/30 font-bold'
               : 'text-[#94A3B8] hover:text-white'
           }`}
         >
@@ -304,9 +304,9 @@ export const SettingsView: React.FC = () => {
 
         <button
           onClick={() => setActiveSection('campaigns')}
-          className={`flex items-center space-x-1.5 px-3 py-2 rounded-lg font-semibold transition-all ${
+          className={`flex items-center space-x-1.5 px-3 py-2 rounded-lg font-semibold transition-all shrink-0 whitespace-nowrap ${
             activeSection === 'campaigns'
-              ? 'bg-[#111827] text-[#00C2FF] border border-[#00C2FF]/30'
+              ? 'bg-[#111827] text-[#00C2FF] border border-[#00C2FF]/30 font-bold'
               : 'text-[#94A3B8] hover:text-white'
           }`}
         >
@@ -316,9 +316,9 @@ export const SettingsView: React.FC = () => {
 
         <button
           onClick={() => setActiveSection('cloud')}
-          className={`flex items-center space-x-1.5 px-3 py-2 rounded-lg font-semibold transition-all ${
+          className={`flex items-center space-x-1.5 px-3 py-2 rounded-lg font-semibold transition-all shrink-0 whitespace-nowrap ${
             activeSection === 'cloud'
-              ? 'bg-[#111827] text-[#00C2FF] border border-[#00C2FF]/30'
+              ? 'bg-[#111827] text-[#00C2FF] border border-[#00C2FF]/30 font-bold'
               : 'text-[#94A3B8] hover:text-white'
           }`}
         >
@@ -328,9 +328,9 @@ export const SettingsView: React.FC = () => {
 
         <button
           onClick={() => setActiveSection('export')}
-          className={`flex items-center space-x-1.5 px-3 py-2 rounded-lg font-semibold transition-all ${
+          className={`flex items-center space-x-1.5 px-3 py-2 rounded-lg font-semibold transition-all shrink-0 whitespace-nowrap ${
             activeSection === 'export'
-              ? 'bg-[#111827] text-[#00C2FF] border border-[#00C2FF]/30'
+              ? 'bg-[#111827] text-[#00C2FF] border border-[#00C2FF]/30 font-bold'
               : 'text-[#94A3B8] hover:text-white'
           }`}
         >

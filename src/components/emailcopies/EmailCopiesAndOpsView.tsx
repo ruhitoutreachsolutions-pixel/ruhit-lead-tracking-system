@@ -307,12 +307,12 @@ export const EmailCopiesAndOpsView: React.FC = () => {
         </div>
 
         {/* Top Two Tabs */}
-        <div className="flex items-center space-x-2 bg-[#111827] p-1 rounded-xl border border-[#1E3A5F]">
+        <div className="flex items-center space-x-2 bg-[#111827] p-1 rounded-xl border border-[#1E3A5F] overflow-x-auto scrollbar-none shrink-0">
           <button
             onClick={() => setActiveTab('copies')}
-            className={`flex items-center space-x-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+            className={`flex items-center space-x-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 whitespace-nowrap ${
               activeTab === 'copies'
-                ? 'bg-[#00C2FF] text-black shadow-md'
+                ? 'bg-[#00C2FF] text-black shadow-md font-bold'
                 : 'text-[#94A3B8] hover:text-white'
             }`}
           >
@@ -322,9 +322,9 @@ export const EmailCopiesAndOpsView: React.FC = () => {
 
           <button
             onClick={() => setActiveTab('notes_tasks')}
-            className={`flex items-center space-x-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+            className={`flex items-center space-x-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 whitespace-nowrap ${
               activeTab === 'notes_tasks'
-                ? 'bg-[#00C2FF] text-black shadow-md'
+                ? 'bg-[#00C2FF] text-black shadow-md font-bold'
                 : 'text-[#94A3B8] hover:text-white'
             }`}
           >
