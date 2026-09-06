@@ -35,7 +35,7 @@ import {
 import { getSupabase, getSupabaseConfig } from '../lib/supabase';
 import { showDesktopNotification } from '../lib/notifications';
 import { useAuth } from './AuthContext';
-import { saveCollection, loadCollection, STORES } from '../lib/indexedDb';
+import { saveCollection, loadCollection, clearAllStores, STORES } from '../lib/indexedDb';
 
 export interface LeadContextType {
   leads: Lead[];
@@ -130,6 +130,7 @@ export interface LeadContextType {
   markNotificationRead: (id: string) => void;
   markAllNotificationsRead: () => void;
   refreshDataFromCloud: () => Promise<void>;
+  clearAllDemoData: () => Promise<void>;
 }
 
 const LeadContext = createContext<LeadContextType | undefined>(undefined);
@@ -139,110 +140,278 @@ export const LeadProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const currentUserId = currentUser?.id || 'usr-ruhit-owner';
   const currentUserName = currentUser?.full_name || 'Ruhit (Owner)';
 
+  const isDbInit = typeof window !== 'undefined' && localStorage.getItem('ruhit_db_initialized') === 'true';
+
   const [leads, setLeads] = useState<Lead[]>(() => {
     const saved = localStorage.getItem('ruhit_local_leads');
-    return saved ? JSON.parse(saved) : INITIAL_LEADS;
+    if (saved) {
+      try { return JSON.parse(saved); } catch {}
+    }
+    return isDbInit ? [] : INITIAL_LEADS;
   });
 
   const [meetings, setMeetings] = useState<Meeting[]>(() => {
     const saved = localStorage.getItem('ruhit_local_meetings');
-    return saved ? JSON.parse(saved) : INITIAL_MEETINGS;
+    if (saved) {
+      try { return JSON.parse(saved); } catch {}
+    }
+    return isDbInit ? [] : INITIAL_MEETINGS;
   });
 
   const [activities, setActivities] = useState<LeadActivity[]>(() => {
     const saved = localStorage.getItem('ruhit_local_activities');
-    return saved ? JSON.parse(saved) : INITIAL_ACTIVITIES;
+    if (saved) {
+      try { return JSON.parse(saved); } catch {}
+    }
+    return isDbInit ? [] : INITIAL_ACTIVITIES;
   });
 
   const [reminders, setReminders] = useState<Reminder[]>(() => {
     const saved = localStorage.getItem('ruhit_local_reminders');
-    return saved ? JSON.parse(saved) : INITIAL_REMINDERS;
+    if (saved) {
+      try { return JSON.parse(saved); } catch {}
+    }
+    return isDbInit ? [] : INITIAL_REMINDERS;
   });
 
   const [notifications, setNotifications] = useState<InAppNotification[]>(() => {
     const saved = localStorage.getItem('ruhit_local_notifications');
-    return saved ? JSON.parse(saved) : INITIAL_NOTIFICATIONS;
+    if (saved) {
+      try { return JSON.parse(saved); } catch {}
+    }
+    return isDbInit ? [] : INITIAL_NOTIFICATIONS;
   });
 
   const [brands, setBrands] = useState<Brand[]>(() => {
     const saved = localStorage.getItem('ruhit_local_brands');
-    return saved ? JSON.parse(saved) : INITIAL_BRANDS;
+    if (saved) {
+      try { return JSON.parse(saved); } catch {}
+    }
+    return isDbInit ? [] : INITIAL_BRANDS;
   });
 
   const [accounts, setAccounts] = useState<Account[]>(() => {
     const saved = localStorage.getItem('ruhit_local_accounts');
-    return saved ? JSON.parse(saved) : INITIAL_ACCOUNTS;
+    if (saved) {
+      try { return JSON.parse(saved); } catch {}
+    }
+    return isDbInit ? [] : INITIAL_ACCOUNTS;
   });
 
   const [campaigns, setCampaigns] = useState<Campaign[]>(() => {
     const saved = localStorage.getItem('ruhit_local_campaigns');
-    return saved ? JSON.parse(saved) : INITIAL_CAMPAIGNS;
+    if (saved) {
+      try { return JSON.parse(saved); } catch {}
+    }
+    return isDbInit ? [] : INITIAL_CAMPAIGNS;
   });
 
   const [batches, setBatches] = useState<MailMergeBatch[]>(() => {
     const saved = localStorage.getItem('ruhit_local_batches');
-    return saved ? JSON.parse(saved) : INITIAL_BATCHES;
+    if (saved) {
+      try { return JSON.parse(saved); } catch {}
+    }
+    return isDbInit ? [] : INITIAL_BATCHES;
   });
 
   const [lists, setLists] = useState<LeadList[]>(() => {
     const saved = localStorage.getItem('ruhit_local_lead_lists');
-    return saved ? JSON.parse(saved) : INITIAL_LISTS;
+    if (saved) {
+      try { return JSON.parse(saved); } catch {}
+    }
+    return isDbInit ? [] : INITIAL_LISTS;
   });
 
   const [emailCopies, setEmailCopies] = useState<EmailCopy[]>(() => {
     const saved = localStorage.getItem('ruhit_local_email_copies');
-    return saved ? JSON.parse(saved) : INITIAL_EMAIL_COPIES;
+    if (saved) {
+      try { return JSON.parse(saved); } catch {}
+    }
+    return isDbInit ? [] : INITIAL_EMAIL_COPIES;
   });
 
   const [importantNotes, setImportantNotes] = useState<ImportantNote[]>(() => {
     const saved = localStorage.getItem('ruhit_local_important_notes');
-    return saved ? JSON.parse(saved) : INITIAL_IMPORTANT_NOTES;
+    if (saved) {
+      try { return JSON.parse(saved); } catch {}
+    }
+    return isDbInit ? [] : INITIAL_IMPORTANT_NOTES;
   });
 
   const [todoTasks, setTodoTasks] = useState<TaskItem[]>(() => {
     const saved = localStorage.getItem('ruhit_local_todo_tasks');
-    return saved ? JSON.parse(saved) : INITIAL_TODO_TASKS;
+    if (saved) {
+      try { return JSON.parse(saved); } catch {}
+    }
+    return isDbInit ? [] : INITIAL_TODO_TASKS;
   });
 
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [cloudStatus, setCloudStatus] = useState<'connected' | 'demo' | 'error' | 'syncing'>('demo');
   const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isHydrated, setIsHydrated] = useState(false);
 
-  // Asynchronous high-capacity IndexedDB persistence (capable of 50,000+ leads without 5MB limits)
-  useEffect(() => { saveCollection(STORES.LEADS, leads); }, [leads]);
-  useEffect(() => { saveCollection(STORES.MEETINGS, meetings); }, [meetings]);
-  useEffect(() => { saveCollection(STORES.BRANDS, brands); }, [brands]);
-  useEffect(() => { saveCollection(STORES.ACCOUNTS, accounts); }, [accounts]);
-  useEffect(() => { saveCollection(STORES.CAMPAIGNS, campaigns); }, [campaigns]);
-  useEffect(() => { saveCollection(STORES.LISTS, lists); }, [lists]);
-  useEffect(() => { saveCollection(STORES.EMAIL_COPIES, emailCopies); }, [emailCopies]);
-  useEffect(() => { saveCollection(STORES.NOTES, importantNotes); }, [importantNotes]);
-  useEffect(() => { saveCollection(STORES.TASKS, todoTasks); }, [todoTasks]);
+  // Synchronize collections with IndexedDB and localStorage (only after hydration completes)
+  useEffect(() => {
+    if (!isHydrated) return;
+    saveCollection(STORES.LEADS, leads);
+    try {
+      localStorage.setItem('ruhit_local_leads', JSON.stringify(leads));
+    } catch {}
+    localStorage.setItem('ruhit_db_initialized', 'true');
+  }, [leads, isHydrated]);
+
+  useEffect(() => {
+    if (!isHydrated) return;
+    saveCollection(STORES.MEETINGS, meetings);
+    try {
+      localStorage.setItem('ruhit_local_meetings', JSON.stringify(meetings));
+    } catch {}
+    localStorage.setItem('ruhit_db_initialized', 'true');
+  }, [meetings, isHydrated]);
+
+  useEffect(() => {
+    if (!isHydrated) return;
+    saveCollection(STORES.ACTIVITIES, activities);
+    try {
+      localStorage.setItem('ruhit_local_activities', JSON.stringify(activities));
+    } catch {}
+    localStorage.setItem('ruhit_db_initialized', 'true');
+  }, [activities, isHydrated]);
+
+  useEffect(() => {
+    if (!isHydrated) return;
+    saveCollection(STORES.REMINDERS, reminders);
+    try {
+      localStorage.setItem('ruhit_local_reminders', JSON.stringify(reminders));
+    } catch {}
+    localStorage.setItem('ruhit_db_initialized', 'true');
+  }, [reminders, isHydrated]);
+
+  useEffect(() => {
+    if (!isHydrated) return;
+    saveCollection(STORES.NOTIFICATIONS, notifications);
+    try {
+      localStorage.setItem('ruhit_local_notifications', JSON.stringify(notifications));
+    } catch {}
+    localStorage.setItem('ruhit_db_initialized', 'true');
+  }, [notifications, isHydrated]);
+
+  useEffect(() => {
+    if (!isHydrated) return;
+    saveCollection(STORES.BRANDS, brands);
+    try {
+      localStorage.setItem('ruhit_local_brands', JSON.stringify(brands));
+    } catch {}
+    localStorage.setItem('ruhit_db_initialized', 'true');
+  }, [brands, isHydrated]);
+
+  useEffect(() => {
+    if (!isHydrated) return;
+    saveCollection(STORES.ACCOUNTS, accounts);
+    try {
+      localStorage.setItem('ruhit_local_accounts', JSON.stringify(accounts));
+    } catch {}
+    localStorage.setItem('ruhit_db_initialized', 'true');
+  }, [accounts, isHydrated]);
+
+  useEffect(() => {
+    if (!isHydrated) return;
+    saveCollection(STORES.CAMPAIGNS, campaigns);
+    try {
+      localStorage.setItem('ruhit_local_campaigns', JSON.stringify(campaigns));
+    } catch {}
+    localStorage.setItem('ruhit_db_initialized', 'true');
+  }, [campaigns, isHydrated]);
+
+  useEffect(() => {
+    if (!isHydrated) return;
+    saveCollection(STORES.LISTS, lists);
+    try {
+      localStorage.setItem('ruhit_local_lead_lists', JSON.stringify(lists));
+    } catch {}
+    localStorage.setItem('ruhit_db_initialized', 'true');
+  }, [lists, isHydrated]);
+
+  useEffect(() => {
+    if (!isHydrated) return;
+    saveCollection(STORES.EMAIL_COPIES, emailCopies);
+    try {
+      localStorage.setItem('ruhit_local_email_copies', JSON.stringify(emailCopies));
+    } catch {}
+    localStorage.setItem('ruhit_db_initialized', 'true');
+  }, [emailCopies, isHydrated]);
+
+  useEffect(() => {
+    if (!isHydrated) return;
+    saveCollection(STORES.NOTES, importantNotes);
+    try {
+      localStorage.setItem('ruhit_local_important_notes', JSON.stringify(importantNotes));
+    } catch {}
+    localStorage.setItem('ruhit_db_initialized', 'true');
+  }, [importantNotes, isHydrated]);
+
+  useEffect(() => {
+    if (!isHydrated) return;
+    saveCollection(STORES.TASKS, todoTasks);
+    try {
+      localStorage.setItem('ruhit_local_todo_tasks', JSON.stringify(todoTasks));
+    } catch {}
+    localStorage.setItem('ruhit_db_initialized', 'true');
+  }, [todoTasks, isHydrated]);
 
   // Hydrate from IndexedDB on startup
   useEffect(() => {
     const hydrateLocalCache = async () => {
       try {
+        const isInit = localStorage.getItem('ruhit_db_initialized') === 'true';
+
         const cachedLeads = await loadCollection<Lead>(STORES.LEADS);
-        if (cachedLeads && cachedLeads.length > 0) setLeads(cachedLeads);
-
         const cachedMtgs = await loadCollection<Meeting>(STORES.MEETINGS);
-        if (cachedMtgs && cachedMtgs.length > 0) setMeetings(cachedMtgs);
-
+        const cachedActs = await loadCollection<LeadActivity>(STORES.ACTIVITIES);
+        const cachedReminders = await loadCollection<Reminder>(STORES.REMINDERS);
+        const cachedNotifs = await loadCollection<InAppNotification>(STORES.NOTIFICATIONS);
+        const cachedBrands = await loadCollection<Brand>(STORES.BRANDS);
+        const cachedAccounts = await loadCollection<Account>(STORES.ACCOUNTS);
+        const cachedCampaigns = await loadCollection<Campaign>(STORES.CAMPAIGNS);
         const cachedLists = await loadCollection<LeadList>(STORES.LISTS);
-        if (cachedLists && cachedLists.length > 0) setLists(cachedLists);
-
         const cachedCopies = await loadCollection<EmailCopy>(STORES.EMAIL_COPIES);
-        if (cachedCopies && cachedCopies.length > 0) setEmailCopies(cachedCopies);
-
         const cachedNotes = await loadCollection<ImportantNote>(STORES.NOTES);
-        if (cachedNotes && cachedNotes.length > 0) setImportantNotes(cachedNotes);
-
         const cachedTasks = await loadCollection<TaskItem>(STORES.TASKS);
-        if (cachedTasks && cachedTasks.length > 0) setTodoTasks(cachedTasks);
+
+        if (isInit) {
+          // If already initialized by user, respect cached data completely (even empty array [] if deleted!)
+          if (cachedLeads !== undefined) setLeads(cachedLeads);
+          if (cachedMtgs !== undefined) setMeetings(cachedMtgs);
+          if (cachedActs !== undefined) setActivities(cachedActs);
+          if (cachedReminders !== undefined) setReminders(cachedReminders);
+          if (cachedNotifs !== undefined) setNotifications(cachedNotifs);
+          if (cachedBrands !== undefined) setBrands(cachedBrands);
+          if (cachedAccounts !== undefined) setAccounts(cachedAccounts);
+          if (cachedCampaigns !== undefined) setCampaigns(cachedCampaigns);
+          if (cachedLists !== undefined) setLists(cachedLists);
+          if (cachedCopies !== undefined) setEmailCopies(cachedCopies);
+          if (cachedNotes !== undefined) setImportantNotes(cachedNotes);
+          if (cachedTasks !== undefined) setTodoTasks(cachedTasks);
+        } else {
+          // First time system setup: seed defaults if empty, then mark initialized
+          if (cachedLeads && cachedLeads.length > 0) setLeads(cachedLeads);
+          if (cachedMtgs && cachedMtgs.length > 0) setMeetings(cachedMtgs);
+          if (cachedBrands && cachedBrands.length > 0) setBrands(cachedBrands);
+          if (cachedAccounts && cachedAccounts.length > 0) setAccounts(cachedAccounts);
+          if (cachedCampaigns && cachedCampaigns.length > 0) setCampaigns(cachedCampaigns);
+          if (cachedLists && cachedLists.length > 0) setLists(cachedLists);
+          if (cachedCopies && cachedCopies.length > 0) setEmailCopies(cachedCopies);
+          if (cachedNotes && cachedNotes.length > 0) setImportantNotes(cachedNotes);
+          if (cachedTasks && cachedTasks.length > 0) setTodoTasks(cachedTasks);
+
+          localStorage.setItem('ruhit_db_initialized', 'true');
+        }
       } catch (err) {
         console.warn('IndexedDB hydration notice:', err);
+      } finally {
+        setIsHydrated(true);
       }
     };
     hydrateLocalCache();
@@ -1040,6 +1209,37 @@ export const LeadProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setTodoTasks((prev) => prev.filter((t) => t.id !== id));
   };
 
+  const clearAllDemoData = useCallback(async () => {
+    setLeads([]);
+    setMeetings([]);
+    setActivities([]);
+    setReminders([]);
+    setNotifications([]);
+    setBrands([]);
+    setAccounts([]);
+    setCampaigns([]);
+    setLists([]);
+    setEmailCopies([]);
+    setImportantNotes([]);
+    setTodoTasks([]);
+
+    localStorage.setItem('ruhit_local_leads', JSON.stringify([]));
+    localStorage.setItem('ruhit_local_meetings', JSON.stringify([]));
+    localStorage.setItem('ruhit_local_activities', JSON.stringify([]));
+    localStorage.setItem('ruhit_local_reminders', JSON.stringify([]));
+    localStorage.setItem('ruhit_local_notifications', JSON.stringify([]));
+    localStorage.setItem('ruhit_local_brands', JSON.stringify([]));
+    localStorage.setItem('ruhit_local_accounts', JSON.stringify([]));
+    localStorage.setItem('ruhit_local_campaigns', JSON.stringify([]));
+    localStorage.setItem('ruhit_local_lead_lists', JSON.stringify([]));
+    localStorage.setItem('ruhit_local_email_copies', JSON.stringify([]));
+    localStorage.setItem('ruhit_local_important_notes', JSON.stringify([]));
+    localStorage.setItem('ruhit_local_todo_tasks', JSON.stringify([]));
+    localStorage.setItem('ruhit_db_initialized', 'true');
+
+    await clearAllStores();
+  }, []);
+
   return (
     <LeadContext.Provider
       value={{
@@ -1120,6 +1320,7 @@ export const LeadProvider: React.FC<{ children: React.ReactNode }> = ({ children
         markNotificationRead,
         markAllNotificationsRead,
         refreshDataFromCloud,
+        clearAllDemoData,
       }}
     >
       {children}

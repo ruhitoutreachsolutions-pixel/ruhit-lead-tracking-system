@@ -4,11 +4,14 @@
  */
 
 const DB_NAME = 'RuhitCRM_DB';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 
 export const STORES = {
   LEADS: 'leads',
   MEETINGS: 'meetings',
+  ACTIVITIES: 'activities',
+  REMINDERS: 'reminders',
+  NOTIFICATIONS: 'notifications',
   USERS: 'users',
   CAMPAIGNS: 'campaigns',
   BRANDS: 'brands',
@@ -125,3 +128,28 @@ export async function deleteItem(storeName: string, id: string): Promise<void> {
     console.warn(`[IndexedDB] Error deleting item ${id} from ${storeName}:`, err);
   }
 }
+
+/**
+ * Clear all collections except users
+ */
+export async function clearAllStores(): Promise<void> {
+  try {
+    const db = await openDatabase();
+    const storeNames = Object.values(STORES).filter((s) => s !== STORES.USERS);
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(storeNames, 'readwrite');
+      storeNames.forEach((name) => {
+        try {
+          transaction.objectStore(name).clear();
+        } catch (e) {
+          console.warn(`Error clearing store ${name}:`, e);
+        }
+      });
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(transaction.error);
+    });
+  } catch (err) {
+    console.warn('[IndexedDB] Error clearing all stores:', err);
+  }
+}
+
