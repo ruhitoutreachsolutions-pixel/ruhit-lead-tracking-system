@@ -158,7 +158,7 @@ export const LeadImportModal: React.FC<LeadImportModalProps> = ({
   const [brandId, setBrandId] = useState('');
   const [accountId, setAccountId] = useState('');
   const [targetListId, setTargetListId] = useState(defaultListId || '');
-  const [assignedUserId, setAssignedUserId] = useState(currentUser.id);
+  const [assignedUserId, setAssignedUserId] = useState(currentUser?.id || 'usr-ruhit-owner');
   const [isImporting, setIsImporting] = useState(false);
   const [importResult, setImportResult] = useState<{ imported: number; duplicates: number } | null>(null);
 

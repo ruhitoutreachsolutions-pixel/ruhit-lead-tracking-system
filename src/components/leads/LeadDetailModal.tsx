@@ -116,7 +116,7 @@ export const LeadDetailModal: React.FC<LeadDetailModalProps> = ({
       setCampaignId(lead.campaign_id || '');
       setBrandId(lead.brand_id || '');
       setAccountId(lead.account_id || '');
-      setAssignedUserId(lead.assigned_user_id || currentUser.id);
+      setAssignedUserId(lead.assigned_user_id || currentUser?.id || 'usr-ruhit-owner');
       setEmail1Date(lead.email_1_date || lead.email_1 || '');
       setEmail2Date(lead.email_2_date || lead.email_2 || '');
       setEmail3Date(lead.email_3_date || lead.email_3 || '');
@@ -145,7 +145,7 @@ export const LeadDetailModal: React.FC<LeadDetailModalProps> = ({
 
       setIsPendingYes(Boolean(lead.is_pending && lead.meeting_count_type !== 'NO'));
     }
-  }, [lead, currentUser.id]);
+  }, [lead, currentUser?.id]);
 
   if (!isOpen || !leadId || !lead) return null;
 
@@ -247,7 +247,7 @@ export const LeadDetailModal: React.FC<LeadDetailModalProps> = ({
       brand_name: selectedBrand?.name,
       account_id: accountId || undefined,
       account_name: selectedAccount?.account_name,
-      assigned_user_id: assignedUserId || currentUser.id,
+      assigned_user_id: assignedUserId || currentUser?.id || 'usr-ruhit-owner',
       assigned_user_name: selectedUser?.full_name,
       email_1: email1Date.trim(),
       email_1_date: email1Date.trim(),
@@ -293,7 +293,7 @@ export const LeadDetailModal: React.FC<LeadDetailModalProps> = ({
       reminder_date: newReminderDate,
       reminder_time: newReminderTime,
       note: newReminderNote,
-      user_id: currentUser.id,
+      user_id: currentUser?.id || 'usr-ruhit-owner',
       is_completed: false,
     });
     setNewReminderDate('');

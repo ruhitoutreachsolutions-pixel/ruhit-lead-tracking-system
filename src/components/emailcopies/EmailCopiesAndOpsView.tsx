@@ -277,7 +277,7 @@ export const EmailCopiesAndOpsView: React.FC = () => {
       priority: quickTaskPriority,
       category: quickTaskCategory,
       is_completed: false,
-      assigned_to: currentUser.full_name,
+      assigned_to: currentUser?.full_name || 'Ruhit (Owner)',
     });
     setQuickTaskTitle('');
   };

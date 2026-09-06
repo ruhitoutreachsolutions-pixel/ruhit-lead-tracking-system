@@ -54,7 +54,7 @@ export const RemindersView: React.FC<RemindersViewProps> = ({ onSelectLead }) =>
       reminder_date: reminderDate,
       reminder_time: reminderTime,
       note,
-      user_id: currentUser.id,
+      user_id: currentUser?.id || 'usr-ruhit-owner',
       is_completed: false,
     });
 

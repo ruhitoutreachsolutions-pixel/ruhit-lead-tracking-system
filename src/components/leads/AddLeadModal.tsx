@@ -26,7 +26,7 @@ export const AddLeadModal: React.FC<AddLeadModalProps> = ({ isOpen, onClose }) =
   const [campaignId, setCampaignId] = useState(campaigns[0]?.id || '');
   const [brandId, setBrandId] = useState(brands[0]?.id || '');
   const [accountId, setAccountId] = useState(accounts[0]?.id || '');
-  const [assignedUserId, setAssignedUserId] = useState(currentUser.id);
+  const [assignedUserId, setAssignedUserId] = useState(currentUser?.id || 'usr-ruhit-owner');
   const [notes, setNotes] = useState('');
 
   // Pipeline Stage & Follow-Up Stages
