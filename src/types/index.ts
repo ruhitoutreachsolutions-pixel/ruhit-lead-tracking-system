@@ -1,11 +1,25 @@
 export type UserRole = 'admin' | 'manager' | 'team_member';
 
+export interface UserPermissions {
+  can_view_leads: boolean;
+  can_create_edit_leads: boolean;
+  can_delete_leads: boolean;
+  can_bulk_import: boolean;
+  can_export_leads: boolean;
+  can_view_reports: boolean;
+  can_manage_settings: boolean;
+  can_manage_email_copies: boolean;
+}
+
 export interface UserProfile {
   id: string;
+  username: string;
   email: string;
+  password?: string;
   full_name: string;
   role: UserRole;
   avatar_color?: string;
+  permissions: UserPermissions;
   created_at?: string;
 }
 

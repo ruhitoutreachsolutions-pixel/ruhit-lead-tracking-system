@@ -9,9 +9,13 @@ import {
   Clock,
   Sparkles,
   ShieldCheck,
-  Smartphone
+  Smartphone,
+  Users,
+  LogOut,
+  Wifi
 } from 'lucide-react';
 import { useLeads } from '../../context/LeadContext';
+import { useAuth } from '../../context/AuthContext';
 import { NotificationDrawer } from '../notifications/NotificationDrawer';
 import {
   getNotificationPermission,
@@ -22,6 +26,7 @@ import {
 interface HeaderProps {
   onOpenAddLead: () => void;
   onOpenImportLeads: () => void;
+  onOpenUserManagement?: () => void;
   searchQuery: string;
   onSearchChange: (q: string) => void;
   onSelectLead?: (leadId: string) => void;
@@ -30,11 +35,13 @@ interface HeaderProps {
 export const Header: React.FC<HeaderProps> = ({
   onOpenAddLead,
   onOpenImportLeads,
+  onOpenUserManagement,
   searchQuery,
   onSearchChange,
   onSelectLead,
 }) => {
   const { leads, cloudStatus, refreshDataFromCloud, notifications, lastSyncTime } = useLeads();
+  const { currentUser, role, permissions, logout } = useAuth();
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [notifPermission, setNotifPermission] = useState<NotificationPermission>('default');
   const [currentTime, setCurrentTime] = useState<string>('');
@@ -43,7 +50,6 @@ export const Header: React.FC<HeaderProps> = ({
     setNotifPermission(getNotificationPermission());
     const updateTime = () => {
       const now = new Date();
-      // Display current local time formatted in Asia/Dhaka
       setCurrentTime(
         now.toLocaleTimeString('en-US', {
           timeZone: 'Asia/Dhaka',
@@ -73,7 +79,7 @@ export const Header: React.FC<HeaderProps> = ({
 
   return (
     <header className="h-16 bg-[#0A0A0A] border-b border-[#1E3A5F]/60 px-6 flex items-center justify-between shrink-0 select-none">
-      {/* Search Input Bar (Matching screenshot 4) */}
+      {/* Search Input Bar */}
       <div className="flex items-center flex-1 max-w-md relative">
         <Search className="w-4 h-4 text-[#7B7B7B] absolute left-3.5 top-1/2 -translate-y-1/2" />
         <input
@@ -96,41 +102,60 @@ export const Header: React.FC<HeaderProps> = ({
       {/* Right Action Controls */}
       <div className="flex items-center space-x-3 ml-4">
         {/* Timezone Clock Display */}
-        <div className="hidden lg:flex items-center space-x-1.5 px-2.5 py-1 bg-[#111827] rounded-md border border-[#1E3A5F]/40 text-[11px] font-mono text-[#94A3B8]">
+        <div className="hidden xl:flex items-center space-x-1.5 px-2.5 py-1 bg-[#111827] rounded-md border border-[#1E3A5F]/40 text-[11px] font-mono text-[#94A3B8]">
           <Clock className="w-3.5 h-3.5 text-[#00C2FF]" />
           <span>{currentTime}</span>
         </div>
 
-        {/* Sync to Cloud Button (Replicating exact UI from screenshot 4) */}
+        {/* 15s Auto-Sync Indicator & Manual Sync Button */}
         <button
           onClick={() => refreshDataFromCloud()}
-          title={lastSyncTime ? `Last synced at ${lastSyncTime.toLocaleTimeString()}` : 'Sync with Supabase'}
+          title={lastSyncTime ? `Auto-sync running every 15s. Last synced: ${lastSyncTime.toLocaleTimeString()}` : 'Syncing with Supabase Cloud every 15s'}
           className="flex items-center space-x-2 px-3 py-1.5 bg-[#111827] hover:bg-[#1E3A5F]/40 text-xs font-mono rounded-lg border border-[#00C2FF]/30 text-[#00C2FF] transition-all"
         >
-          <RefreshCw className={`w-3.5 h-3.5 ${cloudStatus === 'syncing' ? 'animate-spin' : ''}`} />
-          <span className="font-sans font-medium">Sync to Cloud</span>
+          <RefreshCw className={`w-3.5 h-3.5 ${cloudStatus === 'syncing' ? 'animate-spin text-[#00E5A0]' : ''}`} />
+          <span className="font-sans font-medium flex items-center gap-1.5">
+            <span>Auto-Sync (15s)</span>
+            <span className={`w-1.5 h-1.5 rounded-full ${cloudStatus === 'connected' ? 'bg-[#00E5A0]' : cloudStatus === 'syncing' ? 'bg-[#00C2FF] animate-ping' : 'bg-[#F97316]'}`} />
+          </span>
           <span className="px-1.5 py-0.2 bg-[#00C2FF]/20 text-[#00C2FF] text-[10px] font-semibold rounded">
             {leads.length}
           </span>
         </button>
 
-        {/* Add Single Lead Button (Green CTA button matching screenshot 4) */}
-        <button
-          onClick={onOpenAddLead}
-          className="flex items-center space-x-1.5 px-3.5 py-1.5 bg-[#00E5A0] hover:bg-[#00E5A0]/90 text-black font-semibold text-xs rounded-lg transition-all shadow-[0_0_12px_rgba(0,229,160,0.3)]"
-        >
-          <Plus className="w-4 h-4 text-black stroke-[3]" />
-          <span>+ Add Single Lead</span>
-        </button>
+        {/* Add Single Lead Button (Permission protected) */}
+        {permissions.can_create_edit_leads && (
+          <button
+            onClick={onOpenAddLead}
+            className="flex items-center space-x-1.5 px-3.5 py-1.5 bg-[#00E5A0] hover:bg-[#00E5A0]/90 text-black font-semibold text-xs rounded-lg transition-all shadow-[0_0_12px_rgba(0,229,160,0.3)]"
+          >
+            <Plus className="w-4 h-4 text-black stroke-[3]" />
+            <span>+ Add Single Lead</span>
+          </button>
+        )}
 
-        {/* Import Leads Button (Matching screenshot 4) */}
-        <button
-          onClick={onOpenImportLeads}
-          className="flex items-center space-x-1.5 px-3 py-1.5 bg-[#111827] hover:bg-[#182234] text-xs text-[#00C2FF] font-medium rounded-lg border border-[#00C2FF]/40 transition-all"
-        >
-          <FileSpreadsheet className="w-3.5 h-3.5" />
-          <span>Import Leads</span>
-        </button>
+        {/* Import Leads Button (Permission protected) */}
+        {permissions.can_bulk_import && (
+          <button
+            onClick={onOpenImportLeads}
+            className="flex items-center space-x-1.5 px-3 py-1.5 bg-[#111827] hover:bg-[#182234] text-xs text-[#00C2FF] font-medium rounded-lg border border-[#00C2FF]/40 transition-all"
+          >
+            <FileSpreadsheet className="w-3.5 h-3.5" />
+            <span>Import Leads</span>
+          </button>
+        )}
+
+        {/* User Management shortcut for Admin */}
+        {role === 'admin' && onOpenUserManagement && (
+          <button
+            onClick={onOpenUserManagement}
+            className="hidden sm:flex items-center space-x-1 px-2.5 py-1.5 bg-[#111827] hover:bg-[#1E3A5F]/40 text-xs text-[#94A3B8] hover:text-[#00C2FF] rounded-lg border border-[#1E3A5F]/60 transition-colors"
+            title="Manage Team Users & Permissions"
+          >
+            <Users className="w-3.5 h-3.5" />
+            <span className="text-[11px] font-medium">Team</span>
+          </button>
+        )}
 
         {/* Notification Bell with Badge */}
         <button
@@ -146,11 +171,11 @@ export const Header: React.FC<HeaderProps> = ({
           )}
         </button>
 
-        {/* Desktop notification permission CTA if not granted */}
+        {/* Desktop notification CTA if not granted */}
         {notifPermission !== 'granted' && (
           <button
             onClick={handleEnableNotifications}
-            className="hidden xl:flex items-center space-x-1 px-2 py-1 text-[11px] bg-[#F97316]/10 text-[#F97316] border border-[#F97316]/30 rounded hover:bg-[#F97316]/20 transition-all"
+            className="hidden 2xl:flex items-center space-x-1 px-2 py-1 text-[11px] bg-[#F97316]/10 text-[#F97316] border border-[#F97316]/30 rounded hover:bg-[#F97316]/20 transition-all"
             title="Click to enable desktop notifications"
           >
             <Smartphone className="w-3 h-3" />

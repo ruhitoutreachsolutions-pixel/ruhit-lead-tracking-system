@@ -331,3 +331,52 @@ export function calculateDayByDayReport(
 
   return Array.from(rowMap.values()).sort((a, b) => b.date.localeCompare(a.date));
 }
+
+export interface OutreachEmailMetrics {
+  totalEmailSentToday: number;
+  totalFollowUpEmailSentToday: number;
+  totalEmailSentMonth: number;
+  totalFollowUpEmailSentMonth: number;
+}
+
+export function calculateOutreachEmailMetrics(leads: Lead[], referenceDate: Date = new Date()): OutreachEmailMetrics {
+  const todayBounds = getDayBounds(referenceDate);
+  const monthBounds = getRunningMonthBounds(referenceDate);
+  const todayStr = referenceDate.toISOString().slice(0, 10); // 'YYYY-MM-DD'
+
+  let totalEmailSentToday = 0;
+  let totalFollowUpEmailSentToday = 0;
+  let totalEmailSentMonth = 0;
+  let totalFollowUpEmailSentMonth = 0;
+
+  for (const lead of leads) {
+    // 1. Email 1, 2, 3 dispatches
+    const emailDates = [lead.email_1_date, lead.email_2_date, lead.email_3_date].filter(Boolean) as string[];
+    for (const d of emailDates) {
+      if (d.startsWith(todayStr)) {
+        totalEmailSentToday++;
+      }
+      const parsedDate = new Date(d);
+      if (!isNaN(parsedDate.getTime()) && parsedDate >= monthBounds.start && parsedDate <= monthBounds.end) {
+        totalEmailSentMonth++;
+      }
+    }
+
+    // 2. Interested Email Follow-up (FW1, FW2, FW3)
+    if (lead.interested_email_followup_stage) {
+      if (isTimestampInRange(lead.updated_at, todayBounds.start, todayBounds.end)) {
+        totalFollowUpEmailSentToday++;
+      }
+      if (isTimestampInRange(lead.updated_at || lead.created_at, monthBounds.start, monthBounds.end)) {
+        totalFollowUpEmailSentMonth++;
+      }
+    }
+  }
+
+  return {
+    totalEmailSentToday,
+    totalFollowUpEmailSentToday,
+    totalEmailSentMonth,
+    totalFollowUpEmailSentMonth,
+  };
+}

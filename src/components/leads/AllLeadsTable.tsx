@@ -94,7 +94,7 @@ export const AllLeadsTable: React.FC<AllLeadsTableProps> = ({
     recordWhatsAppSent,
     recordCallDone,
   } = useLeads();
-  const { allUsers } = useAuth();
+  const { allUsers, permissions, role } = useAuth();
 
   // List-wise Tab Filter State
   const [activeListTab, setActiveListTab] = useState<string>('all');
@@ -118,7 +118,8 @@ export const AllLeadsTable: React.FC<AllLeadsTableProps> = ({
 
   // Pagination State
   const [currentPage, setCurrentPage] = useState<number>(1);
-  const [pageSize, setPageSize] = useState<number>(20);
+  const [pageSize, setPageSize] = useState<number>(50);
+
 
   // Bulk Selection State
   const [selectedLeadIds, setSelectedLeadIds] = useState<string[]>([]);
@@ -560,6 +561,16 @@ export const AllLeadsTable: React.FC<AllLeadsTableProps> = ({
 
         {/* Right Toolbar Action Buttons */}
         <div className="flex items-center space-x-2 shrink-0">
+          {permissions.can_export_leads && (
+            <button
+              onClick={handleExportCSV}
+              className="flex items-center space-x-1.5 px-3 py-1.5 bg-[#111827] hover:bg-[#1E3A5F]/60 text-[#00C2FF] border border-[#00C2FF]/40 rounded-lg text-xs font-semibold transition-all shadow-sm"
+              title="Export leads to CSV file"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>Export CSV</span>
+            </button>
+          )}
           {onOpenAddLead && (
             <button
               onClick={onOpenAddLead}
@@ -1556,13 +1567,33 @@ export const AllLeadsTable: React.FC<AllLeadsTableProps> = ({
 
         {/* Pagination Footer */}
         <div className="p-3 bg-[#0A0A0A] border-t border-[#1E3A5F] flex flex-wrap items-center justify-between gap-2 text-xs">
-          <span className="text-[#94A3B8]">
-            Showing <strong className="text-white">{(currentPage - 1) * pageSize + 1}</strong> to{' '}
-            <strong className="text-white">
-              {Math.min(currentPage * pageSize, sortedLeads.length)}
-            </strong>{' '}
-            of <strong className="text-white">{sortedLeads.length}</strong> leads
-          </span>
+          <div className="flex items-center space-x-4">
+            <span className="text-[#94A3B8]">
+              Showing <strong className="text-white">{sortedLeads.length === 0 ? 0 : (currentPage - 1) * pageSize + 1}</strong> to{' '}
+              <strong className="text-white">
+                {Math.min(currentPage * pageSize, sortedLeads.length)}
+              </strong>{' '}
+              of <strong className="text-white">{sortedLeads.length}</strong> leads
+            </span>
+
+            <div className="flex items-center space-x-1.5">
+              <span className="text-[#7B7B7B] text-[11px]">Page Size:</span>
+              <select
+                value={pageSize}
+                onChange={(e) => {
+                  setPageSize(Number(e.target.value));
+                  setCurrentPage(1);
+                }}
+                className="bg-[#111827] text-white border border-[#1E3A5F] rounded px-2 py-0.5 text-xs focus:outline-none focus:border-[#00C2FF]"
+              >
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+                <option value={250}>250</option>
+                <option value={500}>500</option>
+              </select>
+            </div>
+          </div>
 
           <div className="flex items-center space-x-1.5">
             <button

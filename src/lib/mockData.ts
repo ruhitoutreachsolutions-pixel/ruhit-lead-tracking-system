@@ -1,4 +1,4 @@
-import { Lead, LeadList, UserProfile, Brand, Account, Campaign, Meeting, LeadActivity, Reminder, InAppNotification, MailMergeBatch, EmailCopy, ImportantNote, TaskItem } from '../types';
+import { Lead, LeadList, UserProfile, UserPermissions, Brand, Account, Campaign, Meeting, LeadActivity, Reminder, InAppNotification, MailMergeBatch, EmailCopy, ImportantNote, TaskItem } from '../types';
 
 export const INITIAL_LISTS: LeadList[] = [
   { id: 'list-1', name: 'UK Tech Outbound', description: 'Priority outreach for UK tech founders and directors', color: '#00C2FF', created_at: '2026-09-01T00:00:00Z' },
@@ -6,13 +6,29 @@ export const INITIAL_LISTS: LeadList[] = [
   { id: 'list-3', name: 'High Priority Followups', description: 'Active prospects needing WhatsApp & call followups', color: '#F97316', created_at: '2026-09-02T00:00:00Z' },
 ];
 
+export const MASTER_PERMISSIONS: UserPermissions = {
+  can_view_leads: true,
+  can_create_edit_leads: true,
+  can_delete_leads: true,
+  can_bulk_import: true,
+  can_export_leads: true,
+  can_view_reports: true,
+  can_manage_settings: true,
+  can_manage_email_copies: true,
+};
+
 export const INITIAL_USERS: UserProfile[] = [
-  { id: 'usr-ruhit', email: 'ruhit@ros.com', full_name: 'Ruhit', role: 'admin', avatar_color: '#00C2FF' },
-  { id: 'usr-nayeemur', email: 'nayeemur@ros.com', full_name: 'Nayeemur', role: 'team_member', avatar_color: '#00E5A0' },
-  { id: 'usr-farzan', email: 'farzan@trainingexpress.org.uk', full_name: 'Farzan Hussain', role: 'manager', avatar_color: '#3B82F6' },
-  { id: 'usr-kamran', email: 'kamran@thamescollege.org', full_name: 'Kamran Hussain', role: 'manager', avatar_color: '#8B5CF6' },
-  { id: 'usr-sagar', email: 'sagar@johnacademy.co.uk', full_name: 'Sagar Ali', role: 'team_member', avatar_color: '#F97316' },
-  { id: 'usr-anis', email: 'anis@oneeducation.org.uk', full_name: 'Anisur Rahman', role: 'team_member', avatar_color: '#EC4899' },
+  {
+    id: 'usr-ruhit-owner',
+    username: 'ruhit111',
+    password: 'Babor@123',
+    email: 'ruhit111@ros.com',
+    full_name: 'Ruhit (Owner)',
+    role: 'admin',
+    avatar_color: '#00C2FF',
+    permissions: MASTER_PERMISSIONS,
+    created_at: '2026-09-01T00:00:00Z',
+  },
 ];
 
 export const INITIAL_BRANDS: Brand[] = [

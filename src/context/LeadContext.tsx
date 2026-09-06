@@ -35,6 +35,7 @@ import {
 import { getSupabase, getSupabaseConfig } from '../lib/supabase';
 import { showDesktopNotification } from '../lib/notifications';
 import { useAuth } from './AuthContext';
+import { saveCollection, loadCollection, STORES } from '../lib/indexedDb';
 
 export interface LeadContextType {
   leads: Lead[];
@@ -135,6 +136,8 @@ const LeadContext = createContext<LeadContextType | undefined>(undefined);
 
 export const LeadProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { currentUser } = useAuth();
+  const currentUserId = currentUser?.id || 'usr-ruhit-owner';
+  const currentUserName = currentUser?.full_name || 'Ruhit (Owner)';
 
   const [leads, setLeads] = useState<Lead[]>(() => {
     const saved = localStorage.getItem('ruhit_local_leads');
@@ -206,19 +209,44 @@ export const LeadProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  useEffect(() => { localStorage.setItem('ruhit_local_leads', JSON.stringify(leads)); }, [leads]);
-  useEffect(() => { localStorage.setItem('ruhit_local_meetings', JSON.stringify(meetings)); }, [meetings]);
-  useEffect(() => { localStorage.setItem('ruhit_local_activities', JSON.stringify(activities)); }, [activities]);
-  useEffect(() => { localStorage.setItem('ruhit_local_reminders', JSON.stringify(reminders)); }, [reminders]);
-  useEffect(() => { localStorage.setItem('ruhit_local_notifications', JSON.stringify(notifications)); }, [notifications]);
-  useEffect(() => { localStorage.setItem('ruhit_local_brands', JSON.stringify(brands)); }, [brands]);
-  useEffect(() => { localStorage.setItem('ruhit_local_accounts', JSON.stringify(accounts)); }, [accounts]);
-  useEffect(() => { localStorage.setItem('ruhit_local_campaigns', JSON.stringify(campaigns)); }, [campaigns]);
-  useEffect(() => { localStorage.setItem('ruhit_local_batches', JSON.stringify(batches)); }, [batches]);
-  useEffect(() => { localStorage.setItem('ruhit_local_lead_lists', JSON.stringify(lists)); }, [lists]);
-  useEffect(() => { localStorage.setItem('ruhit_local_email_copies', JSON.stringify(emailCopies)); }, [emailCopies]);
-  useEffect(() => { localStorage.setItem('ruhit_local_important_notes', JSON.stringify(importantNotes)); }, [importantNotes]);
-  useEffect(() => { localStorage.setItem('ruhit_local_todo_tasks', JSON.stringify(todoTasks)); }, [todoTasks]);
+  // Asynchronous high-capacity IndexedDB persistence (capable of 50,000+ leads without 5MB limits)
+  useEffect(() => { saveCollection(STORES.LEADS, leads); }, [leads]);
+  useEffect(() => { saveCollection(STORES.MEETINGS, meetings); }, [meetings]);
+  useEffect(() => { saveCollection(STORES.BRANDS, brands); }, [brands]);
+  useEffect(() => { saveCollection(STORES.ACCOUNTS, accounts); }, [accounts]);
+  useEffect(() => { saveCollection(STORES.CAMPAIGNS, campaigns); }, [campaigns]);
+  useEffect(() => { saveCollection(STORES.LISTS, lists); }, [lists]);
+  useEffect(() => { saveCollection(STORES.EMAIL_COPIES, emailCopies); }, [emailCopies]);
+  useEffect(() => { saveCollection(STORES.NOTES, importantNotes); }, [importantNotes]);
+  useEffect(() => { saveCollection(STORES.TASKS, todoTasks); }, [todoTasks]);
+
+  // Hydrate from IndexedDB on startup
+  useEffect(() => {
+    const hydrateLocalCache = async () => {
+      try {
+        const cachedLeads = await loadCollection<Lead>(STORES.LEADS);
+        if (cachedLeads && cachedLeads.length > 0) setLeads(cachedLeads);
+
+        const cachedMtgs = await loadCollection<Meeting>(STORES.MEETINGS);
+        if (cachedMtgs && cachedMtgs.length > 0) setMeetings(cachedMtgs);
+
+        const cachedLists = await loadCollection<LeadList>(STORES.LISTS);
+        if (cachedLists && cachedLists.length > 0) setLists(cachedLists);
+
+        const cachedCopies = await loadCollection<EmailCopy>(STORES.EMAIL_COPIES);
+        if (cachedCopies && cachedCopies.length > 0) setEmailCopies(cachedCopies);
+
+        const cachedNotes = await loadCollection<ImportantNote>(STORES.NOTES);
+        if (cachedNotes && cachedNotes.length > 0) setImportantNotes(cachedNotes);
+
+        const cachedTasks = await loadCollection<TaskItem>(STORES.TASKS);
+        if (cachedTasks && cachedTasks.length > 0) setTodoTasks(cachedTasks);
+      } catch (err) {
+        console.warn('IndexedDB hydration notice:', err);
+      }
+    };
+    hydrateLocalCache();
+  }, []);
 
   const refreshDataFromCloud = useCallback(async () => {
     const supabase = getSupabase();
@@ -264,8 +292,14 @@ export const LeadProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
+  // Auto-sync engine: runs automatically every 15 seconds to sync data with cloud
   useEffect(() => {
     refreshDataFromCloud();
+
+    const intervalTimer = setInterval(() => {
+      refreshDataFromCloud();
+    }, 15000); // 15s background auto-sync
+
     const supabase = getSupabase();
     if (supabase) {
       const channel = supabase
@@ -273,8 +307,13 @@ export const LeadProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .on('postgres_changes', { event: '*', schema: 'public', table: 'leads' }, () => refreshDataFromCloud())
         .on('postgres_changes', { event: '*', schema: 'public', table: 'meetings' }, () => refreshDataFromCloud())
         .subscribe();
-      return () => { supabase.removeChannel(channel); };
+      return () => {
+        clearInterval(intervalTimer);
+        supabase.removeChannel(channel);
+      };
     }
+
+    return () => clearInterval(intervalTimer);
   }, [refreshDataFromCloud]);
 
   const recordActivityInternal = async (
@@ -289,15 +328,15 @@ export const LeadProvider: React.FC<{ children: React.ReactNode }> = ({ children
       activity_type: type,
       description,
       metadata,
-      user_id: currentUser.id,
-      user_name: currentUser.full_name,
+      user_id: currentUserId,
+      user_name: currentUserName,
       created_at: new Date().toISOString(),
     };
     setActivities((prev) => [newAct, ...prev]);
     const supabase = getSupabase();
     if (supabase) {
       await supabase.from('lead_activities').insert([
-        { lead_id: leadId, activity_type: type, description, metadata: metadata || {}, user_id: currentUser.id },
+        { lead_id: leadId, activity_type: type, description, metadata: metadata || {}, user_id: currentUserId },
       ]);
     }
   };
@@ -407,8 +446,8 @@ export const LeadProvider: React.FC<{ children: React.ReactNode }> = ({ children
         brand_name: item.brand_name,
         account_id: item.account_id,
         account_name: item.account_name,
-        assigned_user_id: item.assigned_user_id || currentUser.id,
-        assigned_user_name: item.assigned_user_name || currentUser.full_name,
+        assigned_user_id: item.assigned_user_id || currentUserId,
+        assigned_user_name: item.assigned_user_name || currentUserName,
         email_1: item.email_1,
         email_2: item.email_2,
         email_3: item.email_3,
@@ -493,8 +532,8 @@ export const LeadProvider: React.FC<{ children: React.ReactNode }> = ({ children
       meeting_link: data.meeting_link,
       meeting_type: data.meeting_type || 'Google Meet',
       notes: data.notes,
-      assigned_user_id: lead?.assigned_user_id || currentUser.id,
-      assigned_user_name: lead?.assigned_user_name || currentUser.full_name,
+      assigned_user_id: lead?.assigned_user_id || currentUserId,
+      assigned_user_name: lead?.assigned_user_name || currentUserName,
       created_at: now,
       updated_at: now,
     };
@@ -759,10 +798,10 @@ export const LeadProvider: React.FC<{ children: React.ReactNode }> = ({ children
       brand_name: brand?.name,
       account_id: params.accountId,
       account_name: account?.account_name,
-      sender_name: params.senderName || account?.sender_name || currentUser.full_name,
+      sender_name: params.senderName || account?.sender_name || currentUserName,
       lead_count: params.leadIds.length,
-      created_by: currentUser.id,
-      created_by_name: currentUser.full_name,
+      created_by: currentUserId,
+      created_by_name: currentUserName,
       created_at: now,
     };
 
