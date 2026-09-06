@@ -1,4 +1,4 @@
-import { Lead, LeadList, UserProfile, Brand, Account, Campaign, Meeting, LeadActivity, Reminder, InAppNotification, MailMergeBatch } from '../types';
+import { Lead, LeadList, UserProfile, Brand, Account, Campaign, Meeting, LeadActivity, Reminder, InAppNotification, MailMergeBatch, EmailCopy, ImportantNote, TaskItem } from '../types';
 
 export const INITIAL_LISTS: LeadList[] = [
   { id: 'list-1', name: 'UK Tech Outbound', description: 'Priority outreach for UK tech founders and directors', color: '#00C2FF', created_at: '2026-09-01T00:00:00Z' },
@@ -495,3 +495,208 @@ export const INITIAL_BATCHES: MailMergeBatch[] = [
     created_at: '2026-08-25T10:00:00.000Z'
   }
 ];
+
+export const INITIAL_EMAIL_COPIES: EmailCopy[] = [
+  {
+    id: 'copy-1',
+    title: 'Executive Skills & Compliance Pitch',
+    brand_id: 'br-1',
+    brand_name: 'Training Express',
+    account_id: 'acc-1',
+    account_name: 'Farzan TX',
+    campaign_id: 'cmp-1',
+    campaign_name: 'Follow Up Email',
+    sequence_step: 'Sequence 1 (Email 1 - Initial Pitch)',
+    subject_line_1: 'Quick question regarding {{company_name}}\'s staff training',
+    subject_line_2: 'Mandatory compliance & upskilling for {{company_name}} team',
+    subject_lines_extra: ['Partnering with {{company_name}} on CPD accredited certifications'],
+    body_text: `Hi {{first_name}},
+
+I noticed that {{company_name}} has been expanding operations recently. When scaling teams, keeping up with mandatory compliance and specialized upskilling often becomes a logistical hurdle.
+
+At Training Express, we partner with over 4,000 UK organizations to deliver accredited, on-demand compliance & professional certifications with measurable employee completion tracking.
+
+Would you be open to a brief 10-minute discovery call this Thursday or Friday to explore if our tailored corporate portal could save {{company_name}} 35%+ on training overheads?
+
+Best regards,
+{{sender_name}}
+Corporate Partnerships | Training Express`,
+    notes: 'High conversion variant for Operations Directors & HR Leads. Uses compliance urgency angle.',
+    status: 'active',
+    created_at: '2026-09-01T09:00:00Z',
+    updated_at: '2026-09-05T14:30:00Z'
+  },
+  {
+    id: 'copy-2',
+    title: 'Follow Up 1: Case Study & Proof',
+    brand_id: 'br-1',
+    brand_name: 'Training Express',
+    account_id: 'acc-1',
+    account_name: 'Farzan TX',
+    campaign_id: 'cmp-1',
+    campaign_name: 'Follow Up Email',
+    sequence_step: 'Sequence 2 (Email 2 - Follow Up)',
+    subject_line_1: 'Case study: How similar teams reduced training costs by 40%',
+    subject_line_2: 'Following up regarding {{company_name}} - quick thought',
+    subject_lines_extra: ['{{first_name}}, sharing a quick benchmark for {{company_name}}'],
+    body_text: `Hi {{first_name}},
+
+Following up on my previous note. I wanted to quickly share how we recently assisted a mid-market workforce comparable to {{company_name}} in standardizing their CPD and workplace safety accreditations across 120+ staff in under 3 weeks.
+
+Our corporate dashboard enabled their managers to:
+1. Assign role-based modules in 1 click
+2. Monitor real-time completion & downloadable audit records
+3. Reduce overall cost per certification by 42%
+
+Do you have 5 minutes next Tuesday at 11:00 AM UK time for a quick screen share?
+
+Kind regards,
+{{sender_name}}
+Training Express`,
+    notes: 'Send 3-4 business days after Sequence 1. Focuses on social proof and clear ROI metrics.',
+    status: 'active',
+    created_at: '2026-09-02T10:00:00Z',
+    updated_at: '2026-09-05T14:30:00Z'
+  },
+  {
+    id: 'copy-3',
+    title: 'Care & Healthcare Sector Staff Upskilling',
+    brand_id: 'br-2',
+    brand_name: 'John Academy',
+    account_id: 'acc-2',
+    account_name: 'Collab JA',
+    campaign_id: 'cmp-5',
+    campaign_name: 'Care Campaign UK',
+    sequence_step: 'Sequence 1 (Email 1 - Initial Pitch)',
+    subject_line_1: 'Care Certificate & CPD training for {{company_name}}',
+    subject_line_2: 'Supporting care staff compliance at {{company_name}}',
+    body_text: `Hi {{first_name}},
+
+Ensuring your care and nursing staff remain 100% CQC-compliant while maintaining high retention is one of the biggest challenges in the sector today.
+
+At John Academy, we provide customized Care Certificate, Safeguarding, and Healthcare CPD bundles specifically structured for care home operators and domiciliary agencies like {{company_name}}.
+
+Are you available for a brief chat this week to review our group licensing rates?
+
+Warm regards,
+{{sender_name}}
+John Academy Business Team`,
+    notes: 'Strictly for Care Home and Healthcare sector targets.',
+    status: 'active',
+    created_at: '2026-09-03T11:00:00Z'
+  },
+  {
+    id: 'copy-4',
+    title: 'Breakup / Final Attempt Permission Call',
+    brand_id: 'br-3',
+    brand_name: 'One Education',
+    account_id: 'acc-3',
+    account_name: 'Business OE',
+    campaign_id: 'cmp-3',
+    campaign_name: 'Email Campaign',
+    sequence_step: 'Sequence 3 (Email 3 - Final Break-up)',
+    subject_line_1: 'Permission to close your file, {{first_name}}?',
+    subject_line_2: 'Should I pause outreach to {{company_name}}?',
+    body_text: `Hi {{first_name}},
+
+I haven't heard back from you, so I assume staff training and workforce development isn't a priority for {{company_name}} at this moment.
+
+I will stop reaching out so I don't clutter your inbox. If things change in Q4 and you'd like to benchmark your corporate training pricing, please feel free to drop me a note anytime.
+
+Wishing you and {{company_name}} all the best,
+{{sender_name}}
+One Education`,
+    notes: 'Final sequence email. Yields 15-20% last-ditch response rate from busy executives.',
+    status: 'active',
+    created_at: '2026-09-04T12:00:00Z'
+  }
+];
+
+export const INITIAL_IMPORTANT_NOTES: ImportantNote[] = [
+  {
+    id: 'note-1',
+    title: 'Cold Email Deliverability SOP (16 Outbound Mailboxes)',
+    category: 'Deliverability',
+    content: `1. Daily Sending Cap: Maximum 35-40 outbound emails per day per individual mailbox (including follow-ups).
+2. Spacing: Automated dispatcher must enforce 45 to 90-second random delays between outgoing messages.
+3. DNS Records: Verify SPF, DKIM, DMARC, and Custom Tracking Domain are valid before launching any new campaign.
+4. Warmup: Any replacement or newly registered Google Workspace account must undergo minimum 14-day automated warmup before bulk dispatch.`,
+    is_pinned: true,
+    color: '#00C2FF',
+    created_at: '2026-09-01T08:00:00Z'
+  },
+  {
+    id: 'note-2',
+    title: 'WhatsApp Follow-Up Cadence & Message Guidelines',
+    category: 'Outreach SOP',
+    content: `• WA1 Sent: Triggered within 30-60 minutes after a lead replies positively or asks for course syllabus. Send friendly introduction with contact card.
+• WA2 Follow Up Sent: Sent 24-36 hours later if no calendar invite was confirmed. Offer 2 exact time slots (e.g. "Tomorrow at 2 PM or 4 PM?").
+• WA3 Follow Up Sent: Final WhatsApp touch 48 hours later. Include a direct PDF or meeting link.
+• Always keep messages under 4 sentences; avoid links in WA1 to prevent spam flags.`,
+    is_pinned: true,
+    color: '#00E5A0',
+    created_at: '2026-09-02T10:00:00Z'
+  },
+  {
+    id: 'note-3',
+    title: 'Cumulative Pipeline Counting Rules & Milestone Integrity',
+    category: 'Operations',
+    content: `CRITICAL RULE:
+1. Meeting Count = NO can NEVER be marked pending.
+2. Cumulative progression: A meeting marked as Done retains its Scheduled status.
+3. Count YES represents qualified completed meetings that count toward monthly client quotas.
+4. DNC contacts must never be added to mail merge queues.`,
+    is_pinned: false,
+    color: '#F97316',
+    created_at: '2026-09-03T11:00:00Z'
+  }
+];
+
+export const INITIAL_TODO_TASKS: TaskItem[] = [
+  {
+    id: 'task-1',
+    title: 'Verify SPF / DKIM alignment on all 16 mailboxes',
+    description: 'Ensure Training Express, John Academy, and One Education sender domains pass DMARC.',
+    category: 'Deliverability',
+    priority: 'High',
+    is_completed: false,
+    due_date: '2026-09-10',
+    assigned_to: 'Ruhit',
+    created_at: '2026-09-05T09:00:00Z'
+  },
+  {
+    id: 'task-2',
+    title: 'Write A/B testing subject lines for Care Home Campaign',
+    description: 'Create 2 distinct subject lines for Email 2 and Email 3 in Collab JA sequence.',
+    category: 'Outreach',
+    priority: 'High',
+    is_completed: true,
+    due_date: '2026-09-06',
+    assigned_to: 'Farzan Hussain',
+    created_at: '2026-09-04T10:00:00Z',
+    completed_at: '2026-09-06T15:00:00Z'
+  },
+  {
+    id: 'task-3',
+    title: 'Review weekly Meeting Count YES tally for Skill Up',
+    description: 'Confirm all logged YES meetings have matching Google Meet recordings or notes.',
+    category: 'Account Setup',
+    priority: 'Medium',
+    is_completed: false,
+    due_date: '2026-09-08',
+    assigned_to: 'Kamran Hussain',
+    created_at: '2026-09-06T11:00:00Z'
+  },
+  {
+    id: 'task-4',
+    title: 'Clean bounced emails from Enterprise August list',
+    description: 'Filter leads with deliverability errors and mark them DNC or review alternative emails.',
+    category: 'Lead Gen',
+    priority: 'Low',
+    is_completed: false,
+    due_date: '2026-09-12',
+    assigned_to: 'Nayeemur',
+    created_at: '2026-09-06T12:00:00Z'
+  }
+];
+

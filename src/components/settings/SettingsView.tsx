@@ -38,8 +38,10 @@ export const SettingsView: React.FC = () => {
     updateAccount,
     deleteAccount,
     addBrand,
+    updateBrand,
     deleteBrand,
     addCampaign,
+    updateCampaign,
     deleteCampaign,
     refreshDataFromCloud,
     cloudStatus
@@ -144,6 +146,95 @@ export const SettingsView: React.FC = () => {
     });
     setNewCampaignName('');
     setIsAddingCampaign(false);
+  };
+
+  // Edit Account state
+  const [editingAccount, setEditingAccount] = useState<Account | null>(null);
+  const [editAccName, setEditAccName] = useState('');
+  const [editAccEmail, setEditAccEmail] = useState('');
+  const [editAccSender, setEditAccSender] = useState('');
+  const [editAccBrandId, setEditAccBrandId] = useState('');
+  const [editAccStatus, setEditAccStatus] = useState<'active' | 'inactive'>('active');
+
+  const openEditAccount = (acc: Account) => {
+    setEditingAccount(acc);
+    setEditAccName(acc.account_name);
+    setEditAccEmail(acc.email_account);
+    setEditAccSender(acc.sender_name);
+    setEditAccBrandId(acc.brand_id || '');
+    setEditAccStatus(acc.status);
+  };
+
+  const handleUpdateAccount = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingAccount || !editAccName.trim() || !editAccEmail.trim()) return;
+    const brand = brands.find((b) => b.id === editAccBrandId);
+    await updateAccount(editingAccount.id, {
+      account_name: editAccName.trim(),
+      email_account: editAccEmail.trim(),
+      sender_name: editAccSender.trim(),
+      brand_id: editAccBrandId || undefined,
+      brand_name: brand?.name,
+      status: editAccStatus,
+    });
+    setEditingAccount(null);
+  };
+
+  // Edit Brand state
+  const [editingBrand, setEditingBrand] = useState<Brand | null>(null);
+  const [editBrandName, setEditBrandName] = useState('');
+  const [editBrandWebsite, setEditBrandWebsite] = useState('');
+  const [editBrandDesc, setEditBrandDesc] = useState('');
+  const [editBrandStatus, setEditBrandStatus] = useState<'active' | 'inactive'>('active');
+
+  const openEditBrand = (brand: Brand) => {
+    setEditingBrand(brand);
+    setEditBrandName(brand.name);
+    setEditBrandWebsite(brand.website || '');
+    setEditBrandDesc(brand.description || '');
+    setEditBrandStatus(brand.status);
+  };
+
+  const handleUpdateBrand = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingBrand || !editBrandName.trim()) return;
+    await updateBrand(editingBrand.id, {
+      name: editBrandName.trim(),
+      website: editBrandWebsite.trim() || undefined,
+      description: editBrandDesc.trim() || undefined,
+      status: editBrandStatus,
+    });
+    setEditingBrand(null);
+  };
+
+  // Edit Campaign state
+  const [editingCampaign, setEditingCampaign] = useState<Campaign | null>(null);
+  const [editCampName, setEditCampName] = useState('');
+  const [editCampBrandId, setEditCampBrandId] = useState('');
+  const [editCampAccountId, setEditCampAccountId] = useState('');
+  const [editCampStatus, setEditCampStatus] = useState<'Active' | 'Paused' | 'Completed' | 'Archived'>('Active');
+  const [editCampNotes, setEditCampNotes] = useState('');
+
+  const openEditCampaign = (camp: Campaign) => {
+    setEditingCampaign(camp);
+    setEditCampName(camp.name);
+    setEditCampBrandId(camp.brand_id || '');
+    setEditCampAccountId(camp.account_id || '');
+    setEditCampStatus(camp.status);
+    setEditCampNotes(camp.notes || '');
+  };
+
+  const handleUpdateCampaign = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingCampaign || !editCampName.trim()) return;
+    await updateCampaign(editingCampaign.id, {
+      name: editCampName.trim(),
+      brand_id: editCampBrandId || undefined,
+      account_id: editCampAccountId || undefined,
+      status: editCampStatus,
+      notes: editCampNotes.trim() || undefined,
+    });
+    setEditingCampaign(null);
   };
 
   const handleExportTable = (data: any[], filename: string) => {
@@ -328,6 +419,87 @@ export const SettingsView: React.FC = () => {
             </form>
           )}
 
+          {/* Edit Account Inline Form */}
+          {editingAccount && (
+            <form
+              onSubmit={handleUpdateAccount}
+              className="p-4 bg-[#111827] border border-[#00C2FF] rounded-xl space-y-3 animate-in fade-in duration-150 shadow-lg"
+            >
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-white text-sm flex items-center gap-1.5 text-[#00C2FF]">
+                  <Edit2 className="w-3.5 h-3.5" />
+                  <span>Edit Outbound Account: {editingAccount.account_name}</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setEditingAccount(null)}
+                  className="text-[#7B7B7B] hover:text-white"
+                >
+                  ✕
+                </button>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-5 gap-3">
+                <input
+                  type="text"
+                  required
+                  placeholder="Account Name"
+                  value={editAccName}
+                  onChange={(e) => setEditAccName(e.target.value)}
+                  className="bg-[#0A0A0A] text-white border border-[#1E3A5F] rounded p-2 focus:border-[#00C2FF]"
+                />
+                <input
+                  type="email"
+                  required
+                  placeholder="Email Account"
+                  value={editAccEmail}
+                  onChange={(e) => setEditAccEmail(e.target.value)}
+                  className="bg-[#0A0A0A] text-white border border-[#1E3A5F] rounded p-2 focus:border-[#00C2FF]"
+                />
+                <input
+                  type="text"
+                  required
+                  placeholder="Sender Name"
+                  value={editAccSender}
+                  onChange={(e) => setEditAccSender(e.target.value)}
+                  className="bg-[#0A0A0A] text-white border border-[#1E3A5F] rounded p-2 focus:border-[#00C2FF]"
+                />
+                <select
+                  value={editAccBrandId}
+                  onChange={(e) => setEditAccBrandId(e.target.value)}
+                  className="bg-[#0A0A0A] text-white border border-[#1E3A5F] rounded p-2 focus:border-[#00C2FF]"
+                >
+                  <option value="">-- Associate Brand --</option>
+                  {brands.map((b) => (
+                    <option key={b.id} value={b.id}>{b.name}</option>
+                  ))}
+                </select>
+                <select
+                  value={editAccStatus}
+                  onChange={(e) => setEditAccStatus(e.target.value as 'active' | 'inactive')}
+                  className="bg-[#0A0A0A] text-white border border-[#1E3A5F] rounded p-2 focus:border-[#00C2FF]"
+                >
+                  <option value="active">Status: Active</option>
+                  <option value="inactive">Status: Inactive</option>
+                </select>
+              </div>
+              <div className="flex justify-end space-x-2">
+                <button
+                  type="button"
+                  onClick={() => setEditingAccount(null)}
+                  className="px-3 py-1.5 text-[#7B7B7B] hover:text-white"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-1.5 bg-[#00C2FF] text-black font-semibold rounded hover:bg-[#00C2FF]/90 shadow-md"
+                >
+                  Update Account
+                </button>
+              </div>
+            </form>
+          )}
+
           {/* Accounts Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             {accounts.map((acc) => (
@@ -374,18 +546,28 @@ export const SettingsView: React.FC = () => {
                   >
                     {acc.status === 'active' ? 'Disable' : 'Enable'}
                   </button>
-                  <button
-                    onClick={() => {
-                      if (window.confirm(`Delete outbound account "${acc.account_name}" (${acc.email_account})?`)) {
-                        deleteAccount(acc.id);
-                      }
-                    }}
-                    className="text-red-400 hover:text-red-300 flex items-center space-x-1 p-1 hover:bg-red-950/40 rounded transition-colors"
-                    title="Delete Account"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                    <span>Delete</span>
-                  </button>
+                  <div className="flex items-center space-x-1.5">
+                    <button
+                      onClick={() => openEditAccount(acc)}
+                      className="text-[#94A3B8] hover:text-[#00C2FF] flex items-center space-x-1 p-1 hover:bg-[#182234] rounded transition-colors"
+                      title="Edit Account"
+                    >
+                      <Edit2 className="w-3.5 h-3.5" />
+                      <span>Edit</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (window.confirm(`Delete outbound account "${acc.account_name}" (${acc.email_account})?`)) {
+                          deleteAccount(acc.id);
+                        }
+                      }}
+                      className="text-red-400 hover:text-red-300 flex items-center space-x-1 p-1 hover:bg-red-950/40 rounded transition-colors"
+                      title="Delete Account"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>Delete</span>
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}
@@ -441,23 +623,81 @@ export const SettingsView: React.FC = () => {
             </form>
           )}
 
+          {/* Edit Brand Inline Form */}
+          {editingBrand && (
+            <form onSubmit={handleUpdateBrand} className="p-4 bg-[#111827] border border-[#00C2FF] rounded-xl space-y-3 animate-in fade-in duration-150 shadow-lg">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-white text-sm flex items-center gap-1.5 text-[#00C2FF]">
+                  <Edit2 className="w-3.5 h-3.5" />
+                  <span>Edit Brand: {editingBrand.name}</span>
+                </span>
+                <button type="button" onClick={() => setEditingBrand(null)} className="text-[#7B7B7B] hover:text-white">✕</button>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                <input
+                  type="text"
+                  required
+                  placeholder="Brand Name"
+                  value={editBrandName}
+                  onChange={(e) => setEditBrandName(e.target.value)}
+                  className="bg-[#0A0A0A] text-white border border-[#1E3A5F] rounded p-2 focus:border-[#00C2FF]"
+                />
+                <input
+                  type="url"
+                  placeholder="Website (https://...)"
+                  value={editBrandWebsite}
+                  onChange={(e) => setEditBrandWebsite(e.target.value)}
+                  className="bg-[#0A0A0A] text-white border border-[#1E3A5F] rounded p-2 focus:border-[#00C2FF]"
+                />
+                <input
+                  type="text"
+                  placeholder="Description"
+                  value={editBrandDesc}
+                  onChange={(e) => setEditBrandDesc(e.target.value)}
+                  className="bg-[#0A0A0A] text-white border border-[#1E3A5F] rounded p-2 focus:border-[#00C2FF]"
+                />
+                <select
+                  value={editBrandStatus}
+                  onChange={(e) => setEditBrandStatus(e.target.value as 'active' | 'inactive')}
+                  className="bg-[#0A0A0A] text-white border border-[#1E3A5F] rounded p-2 focus:border-[#00C2FF]"
+                >
+                  <option value="active">Status: Active</option>
+                  <option value="inactive">Status: Inactive</option>
+                </select>
+              </div>
+              <div className="flex justify-end space-x-2">
+                <button type="button" onClick={() => setEditingBrand(null)} className="px-3 py-1.5 text-[#7B7B7B] hover:text-white">Cancel</button>
+                <button type="submit" className="px-4 py-1.5 bg-[#00C2FF] text-black font-semibold rounded hover:bg-[#00C2FF]/90 shadow-md">Update Brand</button>
+              </div>
+            </form>
+          )}
+
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             {brands.map((b) => (
               <div key={b.id} className="p-4 bg-[#111827] border border-[#1E3A5F] rounded-xl flex flex-col justify-between space-y-2 hover:border-[#00C2FF]/50 transition-all shadow-md">
                 <div>
                   <div className="flex items-center justify-between">
                     <h4 className="font-bold text-white text-sm">{b.name}</h4>
-                    <button
-                      onClick={() => {
-                        if (window.confirm(`Delete brand "${b.name}"?`)) {
-                          deleteBrand(b.id);
-                        }
-                      }}
-                      className="text-red-400 hover:text-red-300 p-1 hover:bg-red-950/40 rounded transition-colors"
-                      title="Delete Brand"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
+                    <div className="flex items-center space-x-1.5">
+                      <button
+                        onClick={() => openEditBrand(b)}
+                        className="text-[#94A3B8] hover:text-[#00C2FF] p-1 hover:bg-[#182234] rounded transition-colors"
+                        title="Edit Brand"
+                      >
+                        <Edit2 className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (window.confirm(`Delete brand "${b.name}"?`)) {
+                            deleteBrand(b.id);
+                          }
+                        }}
+                        className="text-red-400 hover:text-red-300 p-1 hover:bg-red-950/40 rounded transition-colors"
+                        title="Delete Brand"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </div>
                   {b.website && <p className="text-[#00C2FF] font-mono text-[11px] truncate">{b.website}</p>}
                   {b.description && <p className="text-[#94A3B8] text-[11px]">{b.description}</p>}
@@ -518,15 +758,84 @@ export const SettingsView: React.FC = () => {
             </form>
           )}
 
+          {/* Edit Campaign Inline Form */}
+          {editingCampaign && (
+            <form onSubmit={handleUpdateCampaign} className="p-4 bg-[#111827] border border-[#00C2FF] rounded-xl space-y-3 animate-in fade-in duration-150 shadow-lg">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-white text-sm flex items-center gap-1.5 text-[#00C2FF]">
+                  <Edit2 className="w-3.5 h-3.5" />
+                  <span>Edit Campaign: {editingCampaign.name}</span>
+                </span>
+                <button type="button" onClick={() => setEditingCampaign(null)} className="text-[#7B7B7B] hover:text-white">✕</button>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                <input
+                  type="text"
+                  required
+                  placeholder="Campaign Name"
+                  value={editCampName}
+                  onChange={(e) => setEditCampName(e.target.value)}
+                  className="bg-[#0A0A0A] text-white border border-[#1E3A5F] rounded p-2 focus:border-[#00C2FF]"
+                />
+                <select
+                  value={editCampBrandId}
+                  onChange={(e) => setEditCampBrandId(e.target.value)}
+                  className="bg-[#0A0A0A] text-white border border-[#1E3A5F] rounded p-2 focus:border-[#00C2FF]"
+                >
+                  <option value="">-- Associate Brand --</option>
+                  {brands.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+                </select>
+                <select
+                  value={editCampAccountId}
+                  onChange={(e) => setEditCampAccountId(e.target.value)}
+                  className="bg-[#0A0A0A] text-white border border-[#1E3A5F] rounded p-2 focus:border-[#00C2FF]"
+                >
+                  <option value="">-- Associate Account --</option>
+                  {accounts.map((a) => <option key={a.id} value={a.id}>{a.account_name}</option>)}
+                </select>
+                <select
+                  value={editCampStatus}
+                  onChange={(e) => setEditCampStatus(e.target.value as any)}
+                  className="bg-[#0A0A0A] text-white border border-[#1E3A5F] rounded p-2 focus:border-[#00C2FF]"
+                >
+                  <option value="Active">Status: Active</option>
+                  <option value="Paused">Status: Paused</option>
+                  <option value="Completed">Status: Completed</option>
+                  <option value="Archived">Status: Archived</option>
+                </select>
+              </div>
+              <div>
+                <input
+                  type="text"
+                  placeholder="Campaign notes or instructions..."
+                  value={editCampNotes}
+                  onChange={(e) => setEditCampNotes(e.target.value)}
+                  className="w-full bg-[#0A0A0A] text-white border border-[#1E3A5F] rounded p-2 focus:border-[#00C2FF]"
+                />
+              </div>
+              <div className="flex justify-end space-x-2">
+                <button type="button" onClick={() => setEditingCampaign(null)} className="px-3 py-1.5 text-[#7B7B7B] hover:text-white">Cancel</button>
+                <button type="submit" className="px-4 py-1.5 bg-[#00C2FF] text-black font-semibold rounded hover:bg-[#00C2FF]/90 shadow-md">Update Campaign</button>
+              </div>
+            </form>
+          )}
+
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             {campaigns.map((c) => (
               <div key={c.id} className="p-4 bg-[#111827] border border-[#1E3A5F] rounded-xl space-y-1 hover:border-[#00C2FF]/50 transition-all shadow-md">
                 <div className="flex justify-between items-center">
                   <h4 className="font-bold text-white text-sm">{c.name}</h4>
-                  <div className="flex items-center space-x-2">
+                  <div className="flex items-center space-x-1.5">
                     <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#00E5A0]/15 text-[#00E5A0]">
                       {c.status}
                     </span>
+                    <button
+                      onClick={() => openEditCampaign(c)}
+                      className="text-[#94A3B8] hover:text-[#00C2FF] p-1 hover:bg-[#182234] rounded transition-colors"
+                      title="Edit Campaign"
+                    >
+                      <Edit2 className="w-3.5 h-3.5" />
+                    </button>
                     <button
                       onClick={() => {
                         if (window.confirm(`Delete campaign "${c.name}"?`)) {

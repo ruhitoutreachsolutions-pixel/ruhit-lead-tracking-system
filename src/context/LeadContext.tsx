@@ -13,6 +13,9 @@ import {
   AuditLog,
   Priority,
   MeetingCountType,
+  EmailCopy,
+  ImportantNote,
+  TaskItem,
 } from '../types';
 import {
   INITIAL_LEADS,
@@ -25,6 +28,9 @@ import {
   INITIAL_ACCOUNTS,
   INITIAL_CAMPAIGNS,
   INITIAL_BATCHES,
+  INITIAL_EMAIL_COPIES,
+  INITIAL_IMPORTANT_NOTES,
+  INITIAL_TODO_TASKS,
 } from '../lib/mockData';
 import { getSupabase, getSupabaseConfig } from '../lib/supabase';
 import { showDesktopNotification } from '../lib/notifications';
@@ -104,6 +110,22 @@ export interface LeadContextType {
   updateCampaign: (id: string, updates: Partial<Campaign>) => Promise<void>;
   deleteCampaign: (id: string) => Promise<void>;
 
+  emailCopies: EmailCopy[];
+  addEmailCopy: (copy: Omit<EmailCopy, 'id' | 'created_at' | 'updated_at'>) => Promise<EmailCopy>;
+  updateEmailCopy: (id: string, updates: Partial<EmailCopy>) => Promise<void>;
+  deleteEmailCopy: (id: string) => Promise<void>;
+
+  importantNotes: ImportantNote[];
+  addImportantNote: (note: Omit<ImportantNote, 'id' | 'created_at' | 'updated_at'>) => Promise<ImportantNote>;
+  updateImportantNote: (id: string, updates: Partial<ImportantNote>) => Promise<void>;
+  deleteImportantNote: (id: string) => Promise<void>;
+
+  todoTasks: TaskItem[];
+  addTodoTask: (task: Omit<TaskItem, 'id' | 'created_at'>) => Promise<TaskItem>;
+  toggleTodoTask: (id: string) => Promise<void>;
+  updateTodoTask: (id: string, updates: Partial<TaskItem>) => Promise<void>;
+  deleteTodoTask: (id: string) => Promise<void>;
+
   markNotificationRead: (id: string) => void;
   markAllNotificationsRead: () => void;
   refreshDataFromCloud: () => Promise<void>;
@@ -164,6 +186,21 @@ export const LeadProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return saved ? JSON.parse(saved) : INITIAL_LISTS;
   });
 
+  const [emailCopies, setEmailCopies] = useState<EmailCopy[]>(() => {
+    const saved = localStorage.getItem('ruhit_local_email_copies');
+    return saved ? JSON.parse(saved) : INITIAL_EMAIL_COPIES;
+  });
+
+  const [importantNotes, setImportantNotes] = useState<ImportantNote[]>(() => {
+    const saved = localStorage.getItem('ruhit_local_important_notes');
+    return saved ? JSON.parse(saved) : INITIAL_IMPORTANT_NOTES;
+  });
+
+  const [todoTasks, setTodoTasks] = useState<TaskItem[]>(() => {
+    const saved = localStorage.getItem('ruhit_local_todo_tasks');
+    return saved ? JSON.parse(saved) : INITIAL_TODO_TASKS;
+  });
+
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [cloudStatus, setCloudStatus] = useState<'connected' | 'demo' | 'error' | 'syncing'>('demo');
   const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
@@ -179,6 +216,9 @@ export const LeadProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => { localStorage.setItem('ruhit_local_campaigns', JSON.stringify(campaigns)); }, [campaigns]);
   useEffect(() => { localStorage.setItem('ruhit_local_batches', JSON.stringify(batches)); }, [batches]);
   useEffect(() => { localStorage.setItem('ruhit_local_lead_lists', JSON.stringify(lists)); }, [lists]);
+  useEffect(() => { localStorage.setItem('ruhit_local_email_copies', JSON.stringify(emailCopies)); }, [emailCopies]);
+  useEffect(() => { localStorage.setItem('ruhit_local_important_notes', JSON.stringify(importantNotes)); }, [importantNotes]);
+  useEffect(() => { localStorage.setItem('ruhit_local_todo_tasks', JSON.stringify(todoTasks)); }, [todoTasks]);
 
   const refreshDataFromCloud = useCallback(async () => {
     const supabase = getSupabase();
@@ -870,6 +910,82 @@ export const LeadProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
   };
 
+  const addEmailCopy = async (copyData: Omit<EmailCopy, 'id' | 'created_at' | 'updated_at'>): Promise<EmailCopy> => {
+    const newCopy: EmailCopy = {
+      ...copyData,
+      id: 'copy-' + Date.now() + '-' + Math.random().toString(36).substr(2, 4),
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    setEmailCopies((prev) => [newCopy, ...prev]);
+    return newCopy;
+  };
+
+  const updateEmailCopy = async (id: string, updates: Partial<EmailCopy>): Promise<void> => {
+    setEmailCopies((prev) =>
+      prev.map((c) => (c.id === id ? { ...c, ...updates, updated_at: new Date().toISOString() } : c))
+    );
+  };
+
+  const deleteEmailCopy = async (id: string): Promise<void> => {
+    setEmailCopies((prev) => prev.filter((c) => c.id !== id));
+  };
+
+  const addImportantNote = async (noteData: Omit<ImportantNote, 'id' | 'created_at' | 'updated_at'>): Promise<ImportantNote> => {
+    const newNote: ImportantNote = {
+      ...noteData,
+      id: 'note-' + Date.now() + '-' + Math.random().toString(36).substr(2, 4),
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    setImportantNotes((prev) => [newNote, ...prev]);
+    return newNote;
+  };
+
+  const updateImportantNote = async (id: string, updates: Partial<ImportantNote>): Promise<void> => {
+    setImportantNotes((prev) =>
+      prev.map((n) => (n.id === id ? { ...n, ...updates, updated_at: new Date().toISOString() } : n))
+    );
+  };
+
+  const deleteImportantNote = async (id: string): Promise<void> => {
+    setImportantNotes((prev) => prev.filter((n) => n.id !== id));
+  };
+
+  const addTodoTask = async (taskData: Omit<TaskItem, 'id' | 'created_at'>): Promise<TaskItem> => {
+    const newTask: TaskItem = {
+      ...taskData,
+      id: 'task-' + Date.now() + '-' + Math.random().toString(36).substr(2, 4),
+      created_at: new Date().toISOString(),
+    };
+    setTodoTasks((prev) => [newTask, ...prev]);
+    return newTask;
+  };
+
+  const toggleTodoTask = async (id: string): Promise<void> => {
+    setTodoTasks((prev) =>
+      prev.map((t) => {
+        if (t.id === id) {
+          const isComp = !t.is_completed;
+          return {
+            ...t,
+            is_completed: isComp,
+            completed_at: isComp ? new Date().toISOString() : undefined,
+          };
+        }
+        return t;
+      })
+    );
+  };
+
+  const updateTodoTask = async (id: string, updates: Partial<TaskItem>): Promise<void> => {
+    setTodoTasks((prev) => prev.map((t) => (t.id === id ? { ...t, ...updates } : t)));
+  };
+
+  const deleteTodoTask = async (id: string): Promise<void> => {
+    setTodoTasks((prev) => prev.filter((t) => t.id !== id));
+  };
+
   return (
     <LeadContext.Provider
       value={{
@@ -930,6 +1046,22 @@ export const LeadProvider: React.FC<{ children: React.ReactNode }> = ({ children
         addCampaign,
         updateCampaign,
         deleteCampaign,
+
+        emailCopies,
+        addEmailCopy,
+        updateEmailCopy,
+        deleteEmailCopy,
+
+        importantNotes,
+        addImportantNote,
+        updateImportantNote,
+        deleteImportantNote,
+
+        todoTasks,
+        addTodoTask,
+        toggleTodoTask,
+        updateTodoTask,
+        deleteTodoTask,
 
         markNotificationRead,
         markAllNotificationsRead,

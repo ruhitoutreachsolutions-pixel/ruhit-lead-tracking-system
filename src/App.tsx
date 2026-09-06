@@ -11,6 +11,7 @@ import { ReportsView } from './components/reports/ReportsView';
 import { RemindersView } from './components/reminders/RemindersView';
 import { TimeZoneConverterView } from './components/timezone/TimeZoneConverterView';
 import { SettingsView } from './components/settings/SettingsView';
+import { EmailCopiesAndOpsView } from './components/emailcopies/EmailCopiesAndOpsView';
 import { AddLeadModal } from './components/leads/AddLeadModal';
 import { LeadImportModal } from './components/leads/LeadImportModal';
 import { LeadDetailModal } from './components/leads/LeadDetailModal';
@@ -86,10 +87,9 @@ const AppContent: React.FC = () => {
 
             {currentTab === 'timezone' && <TimeZoneConverterView />}
 
-            {(currentTab === 'settings' ||
-              currentTab === 'campaigns' ||
-              currentTab === 'brands' ||
-              currentTab === 'accounts') && <SettingsView />}
+            {currentTab === 'email_copies' && <EmailCopiesAndOpsView />}
+
+            {currentTab === 'settings' && <SettingsView />}
           </div>
         </main>
       </div>

@@ -6,9 +6,7 @@ import {
   SendHorizontal,
   BarChart3,
   Clock,
-  Flag,
-  Building2,
-  MailCheck,
+  FileText,
   Settings,
   Sparkles,
   LogOut,
@@ -22,12 +20,10 @@ export type NavTab =
   | 'leads'
   | 'meetings'
   | 'mailmerge'
+  | 'email_copies'
   | 'reports'
   | 'reminders'
   | 'timezone'
-  | 'campaigns'
-  | 'brands'
-  | 'accounts'
   | 'settings';
 
 interface SidebarProps {
@@ -46,12 +42,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onSelectTab }) => 
     { id: 'leads', label: 'All Leads', icon: <Users className="w-4 h-4" />, badge: leads.length },
     { id: 'meetings', label: 'Meetings Kanban', icon: <CalendarCheck2 className="w-4 h-4" /> },
     { id: 'mailmerge', label: 'Mail Merge', icon: <SendHorizontal className="w-4 h-4" /> },
+    { id: 'email_copies', label: 'Email Copies & Notes', icon: <FileText className="w-4 h-4" /> },
     { id: 'reports', label: 'Reports', icon: <BarChart3 className="w-4 h-4" /> },
     { id: 'timezone', label: 'Time Converter', icon: <Globe className="w-4 h-4" /> },
     { id: 'reminders', label: 'Reminders', icon: <Clock className="w-4 h-4" />, badge: pendingRemindersCount > 0 ? pendingRemindersCount : undefined },
-    { id: 'campaigns', label: 'Campaigns', icon: <Flag className="w-4 h-4" /> },
-    { id: 'brands', label: 'Brands', icon: <Building2 className="w-4 h-4" /> },
-    { id: 'accounts', label: 'Accounts', icon: <MailCheck className="w-4 h-4" /> },
     { id: 'settings', label: 'Settings', icon: <Settings className="w-4 h-4" /> },
   ];
 

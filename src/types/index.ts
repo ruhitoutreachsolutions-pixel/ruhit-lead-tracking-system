@@ -285,3 +285,48 @@ export interface DayReportRow {
   whatsapp: number;
   calls: number;
 }
+
+export interface EmailCopy {
+  id: string;
+  title: string;
+  brand_id?: string;
+  brand_name?: string;
+  account_id?: string;
+  account_name?: string;
+  campaign_id?: string;
+  campaign_name?: string;
+  sequence_step: string; // e.g. 'Email 1 (Initial Pitch)', 'Email 2 (Follow-up)', 'Email 3 (Value Add)', 'Email 4 (Break-up)'
+  subject_line_1: string; // Subject Line A (Primary)
+  subject_line_2: string; // Subject Line B (A/B Test Variant)
+  subject_lines_extra?: string[]; // Optional extra subject lines
+  body_text: string;
+  notes?: string;
+  status: 'active' | 'draft' | 'archived';
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface ImportantNote {
+  id: string;
+  title: string;
+  category: string; // 'Outreach SOP', 'Objection Handling', 'Deliverability', 'Meeting Closing', 'General'
+  content: string;
+  is_pinned: boolean;
+  color?: string;
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface TaskItem {
+  id: string;
+  title: string;
+  description?: string;
+  category: string; // 'Outreach', 'Follow-up', 'Account Setup', 'Lead Gen', 'General'
+  priority: 'High' | 'Medium' | 'Low';
+  is_completed: boolean;
+  due_date?: string;
+  assigned_to?: string;
+  created_at: string;
+  completed_at?: string;
+}
+
