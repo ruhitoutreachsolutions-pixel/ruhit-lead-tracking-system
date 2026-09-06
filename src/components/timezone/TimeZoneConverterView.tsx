@@ -142,13 +142,17 @@ export const TimeZoneConverterView: React.FC = () => {
 
   // Live clocks formatting
   const formatLiveClock = (timeZone: string) => {
-    return nowTime.toLocaleTimeString('en-US', {
-      timeZone,
-      hour: 'numeric',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: true,
-    });
+    try {
+      return nowTime.toLocaleTimeString('en-US', {
+        timeZone,
+        hour: 'numeric',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: true,
+      });
+    } catch {
+      return nowTime.toLocaleTimeString();
+    }
   };
 
   return (
