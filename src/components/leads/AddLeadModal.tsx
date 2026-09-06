@@ -10,7 +10,7 @@ interface AddLeadModalProps {
 }
 
 export const AddLeadModal: React.FC<AddLeadModalProps> = ({ isOpen, onClose }) => {
-  const { addLead, brands, accounts, campaigns } = useLeads();
+  const { addLead, brands, accounts, campaigns, lists } = useLeads();
   const { allUsers, currentUser } = useAuth();
 
   const [email, setEmail] = useState('');
@@ -18,6 +18,8 @@ export const AddLeadModal: React.FC<AddLeadModalProps> = ({ isOpen, onClose }) =
   const [lastName, setLastName] = useState('');
   const [companyName, setCompanyName] = useState('');
   const [whatsappNumber, setWhatsappNumber] = useState('');
+  const [alternativePhone, setAlternativePhone] = useState('');
+  const [selectedListId, setSelectedListId] = useState('');
   const [country, setCountry] = useState('United Kingdom');
   const [city, setCity] = useState('');
   const [priority, setPriority] = useState<Priority>('High');
@@ -69,14 +71,15 @@ export const AddLeadModal: React.FC<AddLeadModalProps> = ({ isOpen, onClose }) =
       const selectedUser = allUsers.find((u) => u.id === assignedUserId);
 
       const now = new Date().toISOString();
-      const isInterested = pipelineStage !== 'outreach';
+      const isInterested = pipelineStage !== 'outreach' && pipelineStage !== 'dnc';
       const isScheduled = ['scheduled', 'done', 'count_yes', 'count_no'].includes(pipelineStage);
       const isDone = ['done', 'count_yes', 'count_no'].includes(pipelineStage);
       const meetingCount = pipelineStage === 'count_yes' ? 'YES' : pipelineStage === 'count_no' ? 'NO' : null;
       
       // Rule: Count NO is NEVER pending
-      const canBePending = pipelineStage !== 'count_no';
+      const canBePending = pipelineStage !== 'count_no' && pipelineStage !== 'dnc';
       const finalPending = canBePending && isPendingYes;
+      const finalPriority = pipelineStage === 'dnc' ? 'DNC' : priority;
 
       await addLead({
         email: email.trim().toLowerCase(),
@@ -84,9 +87,11 @@ export const AddLeadModal: React.FC<AddLeadModalProps> = ({ isOpen, onClose }) =
         last_name: lastName.trim(),
         company_name: companyName.trim(),
         whatsapp_number: whatsappNumber.trim(),
+        alternative_phone: alternativePhone.trim(),
+        list_ids: selectedListId ? [selectedListId] : [],
         country: country.trim(),
         city: city.trim(),
-        priority,
+        priority: finalPriority,
         campaign_id: campaignId || undefined,
         campaign_name: selectedCampaign?.name,
         brand_id: brandId || undefined,
@@ -231,6 +236,21 @@ export const AddLeadModal: React.FC<AddLeadModalProps> = ({ isOpen, onClose }) =
               />
             </div>
 
+            {/* Alternative Number (Calling) */}
+            <div>
+              <label className="text-[11px] font-semibold text-white block mb-1 flex items-center justify-between">
+                <span>Alternative Number (Calling)</span>
+                <span className="text-[10px] text-[#64748B]">Non-WhatsApp</span>
+              </label>
+              <input
+                type="text"
+                value={alternativePhone}
+                onChange={(e) => setAlternativePhone(e.target.value)}
+                placeholder="+442079460123"
+                className="w-full bg-[#111827] border border-[#1E3A5F] rounded-lg px-3 py-2 text-xs text-white focus:border-[#00C2FF] focus:outline-none font-mono"
+              />
+            </div>
+
             {/* Priority */}
             <div>
               <label className="text-[11px] font-semibold text-white block mb-1">
@@ -350,6 +370,23 @@ export const AddLeadModal: React.FC<AddLeadModalProps> = ({ isOpen, onClose }) =
                 ))}
               </select>
             </div>
+
+            {/* Target List */}
+            <div>
+              <label className="text-[11px] font-semibold text-white block mb-1">
+                Assign to List
+              </label>
+              <select
+                value={selectedListId}
+                onChange={(e) => setSelectedListId(e.target.value)}
+                className="w-full bg-[#111827] border border-[#1E3A5F] rounded-lg px-3 py-2 text-xs text-white focus:border-[#00C2FF] focus:outline-none"
+              >
+                <option value="">-- No List / Default --</option>
+                {lists.map((l) => (
+                  <option key={l.id} value={l.id}>{l.name}</option>
+                ))}
+              </select>
+            </div>
           </div>
 
           {/* Stage & Milestone Section (Added per user feedback!) */}
@@ -370,7 +407,7 @@ export const AddLeadModal: React.FC<AddLeadModalProps> = ({ isOpen, onClose }) =
                   onChange={(e) => {
                     const s = e.target.value;
                     setPipelineStage(s);
-                    if (s === 'count_no') setIsPendingYes(false);
+                    if (s === 'count_no' || s === 'dnc') setIsPendingYes(false);
                   }}
                   className="w-full bg-[#0A0A0A] border border-[#1E3A5F] rounded-lg px-2.5 py-1.5 text-xs text-white focus:border-[#00C2FF] focus:outline-none"
                 >
@@ -380,6 +417,7 @@ export const AddLeadModal: React.FC<AddLeadModalProps> = ({ isOpen, onClose }) =
                   <option value="done">Stage 3: Meeting Done</option>
                   <option value="count_yes">Stage 4: Meeting Count = YES</option>
                   <option value="count_no">Stage 4b: Meeting Count = NO</option>
+                  <option value="dnc">DNC (Do Not Contact / Excluded)</option>
                 </select>
               </div>
 

@@ -48,6 +48,14 @@ export type MeetingCountType = 'YES' | 'NO' | null;
 export type WhatsAppFollowUpStage = 'WA1 Sent' | 'WA2 Follow Up Sent' | 'WA3 Follow Up Sent' | null;
 export type InterestedEmailFollowUpStage = 'FW1 Sent' | 'FW2 Sent' | 'FW3 Sent' | null;
 
+export interface LeadList {
+  id: string;
+  name: string;
+  description?: string;
+  color?: string;
+  created_at: string;
+}
+
 export interface Lead {
   id: string;
   email: string;
@@ -55,6 +63,8 @@ export interface Lead {
   last_name: string;
   company_name: string;
   whatsapp_number?: string;
+  alternative_phone?: string;
+  list_ids?: string[];
   country?: string;
   city?: string;
   notes?: string;

@@ -21,7 +21,7 @@ import { copyMailMergeToClipboard } from '../../lib/mailMerge';
 import { Lead } from '../../types';
 
 export const MailMergeDispatcher: React.FC = () => {
-  const { leads, campaigns, accounts, updateLead, createMailMergeBatch } = useLeads();
+  const { leads, campaigns, accounts, bulkUpdateLeads, createMailMergeBatch } = useLeads();
   const { currentUser } = useAuth();
 
   // 1. Sequence & Campaign Selection
@@ -104,33 +104,33 @@ export const MailMergeDispatcher: React.FC = () => {
     }
   };
 
-  // Action 2: Auto-Apply Sent Status
+  // Action 2: Auto-Apply Sent Status (Directly uploads into Email 1, Email 2, or Email 3)
   const handleAutoApplySent = async () => {
     if (batchQueue.length === 0) return;
 
-    for (const lead of batchQueue) {
-      const updates: Partial<Lead> = {};
-      if (selectedSequence === 'email1') {
-        updates.email_1 = dispatchDateTag;
-        updates.email_1_date = dispatchDateTag;
-      } else if (selectedSequence === 'email2') {
-        updates.email_2 = dispatchDateTag;
-        updates.email_2_date = dispatchDateTag;
-      } else if (selectedSequence === 'email3') {
-        updates.email_3 = dispatchDateTag;
-        updates.email_3_date = dispatchDateTag;
-      }
-      await updateLead(lead.id, updates, `Dispatched ${sequenceInfo.name} on ${dispatchDateTag}`);
+    const updates: Partial<Lead> = {};
+    if (selectedSequence === 'email1') {
+      updates.email_1 = dispatchDateTag;
+      updates.email_1_date = dispatchDateTag;
+    } else if (selectedSequence === 'email2') {
+      updates.email_2 = dispatchDateTag;
+      updates.email_2_date = dispatchDateTag;
+    } else if (selectedSequence === 'email3') {
+      updates.email_3 = dispatchDateTag;
+      updates.email_3_date = dispatchDateTag;
     }
+
+    const targetIds = batchQueue.map((l) => l.id);
+    await bulkUpdateLeads(targetIds, updates, `Dispatched ${sequenceInfo.name} on ${dispatchDateTag}`);
 
     await createMailMergeBatch({
       campaignId: selectedCampaign !== 'all' ? selectedCampaign : undefined,
       senderName: sendingAccount,
-      leadIds: batchQueue.map((l) => l.id),
+      leadIds: targetIds,
     });
 
     setApplyFeedback(true);
-    setTimeout(() => setApplyFeedback(false), 3000);
+    setTimeout(() => setApplyFeedback(false), 3500);
   };
 
   return (

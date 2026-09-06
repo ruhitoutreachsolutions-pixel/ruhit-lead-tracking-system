@@ -36,8 +36,11 @@ export const SettingsView: React.FC = () => {
     activities,
     addAccount,
     updateAccount,
+    deleteAccount,
     addBrand,
+    deleteBrand,
     addCampaign,
+    deleteCampaign,
     refreshDataFromCloud,
     cloudStatus
   } = useLeads();
@@ -371,6 +374,18 @@ export const SettingsView: React.FC = () => {
                   >
                     {acc.status === 'active' ? 'Disable' : 'Enable'}
                   </button>
+                  <button
+                    onClick={() => {
+                      if (window.confirm(`Delete outbound account "${acc.account_name}" (${acc.email_account})?`)) {
+                        deleteAccount(acc.id);
+                      }
+                    }}
+                    className="text-red-400 hover:text-red-300 flex items-center space-x-1 p-1 hover:bg-red-950/40 rounded transition-colors"
+                    title="Delete Account"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Delete</span>
+                  </button>
                 </div>
               </div>
             ))}
@@ -428,10 +443,25 @@ export const SettingsView: React.FC = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             {brands.map((b) => (
-              <div key={b.id} className="p-4 bg-[#111827] border border-[#1E3A5F] rounded-xl space-y-1">
-                <h4 className="font-bold text-white text-sm">{b.name}</h4>
-                {b.website && <p className="text-[#00C2FF] font-mono text-[11px] truncate">{b.website}</p>}
-                {b.description && <p className="text-[#94A3B8] text-[11px]">{b.description}</p>}
+              <div key={b.id} className="p-4 bg-[#111827] border border-[#1E3A5F] rounded-xl flex flex-col justify-between space-y-2 hover:border-[#00C2FF]/50 transition-all shadow-md">
+                <div>
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-bold text-white text-sm">{b.name}</h4>
+                    <button
+                      onClick={() => {
+                        if (window.confirm(`Delete brand "${b.name}"?`)) {
+                          deleteBrand(b.id);
+                        }
+                      }}
+                      className="text-red-400 hover:text-red-300 p-1 hover:bg-red-950/40 rounded transition-colors"
+                      title="Delete Brand"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                  {b.website && <p className="text-[#00C2FF] font-mono text-[11px] truncate">{b.website}</p>}
+                  {b.description && <p className="text-[#94A3B8] text-[11px]">{b.description}</p>}
+                </div>
               </div>
             ))}
           </div>
@@ -490,12 +520,25 @@ export const SettingsView: React.FC = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             {campaigns.map((c) => (
-              <div key={c.id} className="p-4 bg-[#111827] border border-[#1E3A5F] rounded-xl space-y-1">
+              <div key={c.id} className="p-4 bg-[#111827] border border-[#1E3A5F] rounded-xl space-y-1 hover:border-[#00C2FF]/50 transition-all shadow-md">
                 <div className="flex justify-between items-center">
                   <h4 className="font-bold text-white text-sm">{c.name}</h4>
-                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#00E5A0]/15 text-[#00E5A0]">
-                    {c.status}
-                  </span>
+                  <div className="flex items-center space-x-2">
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#00E5A0]/15 text-[#00E5A0]">
+                      {c.status}
+                    </span>
+                    <button
+                      onClick={() => {
+                        if (window.confirm(`Delete campaign "${c.name}"?`)) {
+                          deleteCampaign(c.id);
+                        }
+                      }}
+                      className="text-red-400 hover:text-red-300 p-1 hover:bg-red-950/40 rounded transition-colors"
+                      title="Delete Campaign"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
                 {c.notes && <p className="text-[#94A3B8] text-[11px]">{c.notes}</p>}
               </div>

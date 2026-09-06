@@ -20,7 +20,8 @@ import {
   PhoneCall,
   Copy,
   Check,
-  Save
+  Save,
+  Trash2
 } from 'lucide-react';
 import { useLeads } from '../../context/LeadContext';
 import { useAuth } from '../../context/AuthContext';
@@ -57,6 +58,8 @@ export const LeadDetailModal: React.FC<LeadDetailModalProps> = ({
     addNote,
     addReminder,
     completeReminder,
+    deleteLead,
+    lists,
   } = useLeads();
   const { allUsers, currentUser } = useAuth();
 
@@ -81,6 +84,9 @@ export const LeadDetailModal: React.FC<LeadDetailModalProps> = ({
   const [whatsappFollowup, setWhatsappFollowup] = useState<string>('none');
   const [interestedEmailFollowup, setInterestedEmailFollowup] = useState<string>('none');
   const [notes, setNotes] = useState('');
+  const [alternativePhone, setAlternativePhone] = useState('');
+  const [selectedListId, setSelectedListId] = useState('');
+  const [isCopiedAlt, setIsCopiedAlt] = useState(false);
 
   // Stage & Pending State
   const [pipelineStage, setPipelineStage] = useState<string>('outreach');
@@ -117,9 +123,13 @@ export const LeadDetailModal: React.FC<LeadDetailModalProps> = ({
       setWhatsappFollowup(lead.whatsapp_followup_stage || 'none');
       setInterestedEmailFollowup(lead.interested_email_followup_stage || 'none');
       setNotes(lead.notes || '');
+      setAlternativePhone(lead.alternative_phone || '');
+      setSelectedListId((lead.list_ids && lead.list_ids[0]) || '');
 
       // Determine current stage
-      if (lead.meeting_count_type === 'YES') {
+      if (lead.priority === 'DNC') {
+        setPipelineStage('dnc');
+      } else if (lead.meeting_count_type === 'YES') {
         setPipelineStage('count_yes');
       } else if (lead.meeting_count_type === 'NO') {
         setPipelineStage('count_no');
@@ -141,6 +151,13 @@ export const LeadDetailModal: React.FC<LeadDetailModalProps> = ({
 
   const leadActivities = activities.filter((a) => a.lead_id === leadId);
   const leadReminders = reminders.filter((r) => r.lead_id === leadId);
+
+  const handleDeleteLead = async () => {
+    if (window.confirm(`Are you sure you want to permanently delete lead ${lead.email}?`)) {
+      await deleteLead(lead.id);
+      onClose();
+    }
+  };
 
   const handleCopyWhatsApp = () => {
     if (!whatsappNumber) return;
@@ -176,7 +193,7 @@ export const LeadDetailModal: React.FC<LeadDetailModalProps> = ({
 
     const now = new Date().toISOString();
 
-    if (pipelineStage === 'outreach') {
+    if (pipelineStage === 'outreach' || pipelineStage === 'dnc') {
       isInterested = false;
       isMeetingScheduled = false;
       isMeetingDone = false;
@@ -212,15 +229,18 @@ export const LeadDetailModal: React.FC<LeadDetailModalProps> = ({
     const canBePending = pipelineStage !== 'count_no';
     const finalPending = canBePending && isPendingYes;
 
+    const finalPriority = pipelineStage === 'dnc' ? 'DNC' : priority;
     const updates: Partial<Lead> = {
       first_name: firstName.trim(),
       last_name: lastName.trim(),
       email: email.trim().toLowerCase(),
       company_name: companyName.trim(),
       whatsapp_number: whatsappNumber.trim(),
+      alternative_phone: alternativePhone.trim(),
+      list_ids: selectedListId ? [selectedListId] : [],
       country: country.trim(),
       city: city.trim(),
-      priority,
+      priority: finalPriority,
       campaign_id: campaignId || undefined,
       campaign_name: selectedCampaign?.name,
       brand_id: brandId || undefined,
@@ -322,6 +342,13 @@ export const LeadDetailModal: React.FC<LeadDetailModalProps> = ({
 
           <div className="flex items-center space-x-2">
             <button
+              onClick={handleDeleteLead}
+              className="p-1.5 text-red-400 hover:text-red-300 hover:bg-red-950/40 rounded-lg border border-red-900/60 transition-all mr-1"
+              title="Delete Lead"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+            <button
               onClick={handleSaveChanges}
               className="flex items-center space-x-1.5 px-3 py-1.5 bg-[#00C2FF] hover:bg-[#00C2FF]/80 text-black font-bold text-xs rounded-lg transition-all shadow-md"
             >
@@ -340,7 +367,7 @@ export const LeadDetailModal: React.FC<LeadDetailModalProps> = ({
         {/* Action Quick Bar */}
         <div className="px-5 py-2.5 bg-[#0E1522] border-b border-[#1E3A5F]/60 flex flex-wrap items-center justify-between gap-2 text-xs">
           <div className="flex items-center space-x-2">
-            {whatsappNumber ? (
+            {whatsappNumber && (
               <div className="flex items-center space-x-1">
                 <button
                   onClick={handleSendWhatsApp}
@@ -358,8 +385,34 @@ export const LeadDetailModal: React.FC<LeadDetailModalProps> = ({
                   {isCopied ? <Check className="w-3.5 h-3.5 text-[#00E5A0]" /> : <Copy className="w-3.5 h-3.5" />}
                 </button>
               </div>
-            ) : (
-              <span className="text-[#7B7B7B] italic text-[11px]">No WhatsApp Number</span>
+            )}
+
+            {alternativePhone && (
+              <div className="flex items-center space-x-1">
+                <a
+                  href={`tel:${alternativePhone.replace(/[^0-9+]/g, '')}`}
+                  className="flex items-center space-x-1.5 px-3 py-1 bg-[#00C2FF]/15 hover:bg-[#00C2FF]/25 text-[#00C2FF] border border-[#00C2FF]/40 rounded-lg transition-all font-mono"
+                  title="Call Alternative Direct Number"
+                >
+                  <PhoneCall className="w-3.5 h-3.5" />
+                  <span>Call Alt ({alternativePhone})</span>
+                </a>
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(alternativePhone);
+                    setIsCopiedAlt(true);
+                    setTimeout(() => setIsCopiedAlt(false), 2000);
+                  }}
+                  className="p-1 bg-[#111827] hover:bg-[#182234] border border-[#1E3A5F] text-[#94A3B8] hover:text-white rounded-lg transition-colors"
+                  title="Copy Alternative Number"
+                >
+                  {isCopiedAlt ? <Check className="w-3.5 h-3.5 text-[#00C2FF]" /> : <Copy className="w-3.5 h-3.5 text-[#00C2FF]" />}
+                </button>
+              </div>
+            )}
+
+            {!whatsappNumber && !alternativePhone && (
+              <span className="text-[#7B7B7B] italic text-[11px]">No Phone / WhatsApp</span>
             )}
 
             <button
@@ -433,7 +486,7 @@ export const LeadDetailModal: React.FC<LeadDetailModalProps> = ({
                     onChange={(e) => {
                       const newStage = e.target.value;
                       setPipelineStage(newStage);
-                      if (newStage === 'count_no') {
+                      if (newStage === 'count_no' || newStage === 'dnc') {
                         setIsPendingYes(false); // Count NO is NEVER pending
                       }
                     }}
@@ -445,6 +498,7 @@ export const LeadDetailModal: React.FC<LeadDetailModalProps> = ({
                     <option value="done">Stage 3: Meeting Done</option>
                     <option value="count_yes">Stage 4: Meeting Count = YES</option>
                     <option value="count_no">Stage 4b: Meeting Count = NO</option>
+                    <option value="dnc">DNC (Do Not Contact / Excluded)</option>
                   </select>
                 </div>
 

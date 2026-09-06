@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   X,
   FileSpreadsheet,
@@ -7,7 +7,9 @@ import {
   AlertTriangle,
   UploadCloud,
   ChevronRight,
-  ArrowRight
+  ArrowRight,
+  Upload,
+  FileText
 } from 'lucide-react';
 import { useLeads } from '../../context/LeadContext';
 import { useAuth } from '../../context/AuthContext';
@@ -16,6 +18,7 @@ import { Lead } from '../../types';
 interface LeadImportModalProps {
   isOpen: boolean;
   onClose: () => void;
+  defaultListId?: string;
 }
 
 interface ParsedRow {
@@ -23,14 +26,22 @@ interface ParsedRow {
   first_name: string;
   last_name: string;
   company_name: string;
+  whatsapp_number: string;
+  alternative_phone: string;
+  city: string;
+  country: string;
   isValid: boolean;
   errors: string[];
   isDuplicateInPasted: boolean;
   isDuplicateInDB: boolean;
 }
 
-export const LeadImportModal: React.FC<LeadImportModalProps> = ({ isOpen, onClose }) => {
-  const { bulkImportLeads, leads, campaigns, brands, accounts } = useLeads();
+export const LeadImportModal: React.FC<LeadImportModalProps> = ({
+  isOpen,
+  onClose,
+  defaultListId
+}) => {
+  const { bulkImportLeads, leads, campaigns, brands, accounts, lists } = useLeads();
   const { allUsers, currentUser } = useAuth();
 
   const [rawText, setRawText] = useState('');
@@ -39,18 +50,36 @@ export const LeadImportModal: React.FC<LeadImportModalProps> = ({ isOpen, onClos
   const [campaignId, setCampaignId] = useState('');
   const [brandId, setBrandId] = useState('');
   const [accountId, setAccountId] = useState('');
+  const [targetListId, setTargetListId] = useState(defaultListId || '');
   const [assignedUserId, setAssignedUserId] = useState(currentUser.id);
   const [isImporting, setIsImporting] = useState(false);
   const [importResult, setImportResult] = useState<{ imported: number; duplicates: number } | null>(null);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   if (!isOpen) return null;
 
   const existingDbEmails = new Set(leads.map((l) => l.email.toLowerCase().trim()));
 
-  const handleParse = () => {
-    if (!rawText.trim()) return;
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
 
-    const lines = rawText.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const content = event.target?.result as string;
+      if (content) {
+        setRawText(content);
+        processRawText(content);
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const processRawText = (text: string) => {
+    if (!text.trim()) return;
+
+    const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
     if (lines.length === 0) return;
 
     const rows: ParsedRow[] = [];
@@ -61,7 +90,7 @@ export const LeadImportModal: React.FC<LeadImportModalProps> = ({ isOpen, onClos
     const firstLineLower = lines[0].toLowerCase();
     if (
       firstLineLower.includes('email') &&
-      (firstLineLower.includes('name') || firstLineLower.includes('first'))
+      (firstLineLower.includes('name') || firstLineLower.includes('first') || firstLineLower.includes('company'))
     ) {
       startIndex = 1;
     }
@@ -70,13 +99,17 @@ export const LeadImportModal: React.FC<LeadImportModalProps> = ({ isOpen, onClos
       const line = lines[i];
       // Delimited by tab (Google sheets paste) or comma
       const cols = line.includes('\t')
-        ? line.split('\t').map((c) => c.trim())
-        : line.split(',').map((c) => c.trim());
+        ? line.split('\t').map((c) => c.trim().replace(/^"|"$/g, ''))
+        : line.split(',').map((c) => c.trim().replace(/^"|"$/g, ''));
 
       const email = cols[0] || '';
       const firstName = cols[1] || '';
       const lastName = cols[2] || '';
       const company = cols[3] || '';
+      const whatsapp = cols[4] || '';
+      const altPhone = cols[5] || '';
+      const city = cols[6] || '';
+      const country = cols[7] || '';
 
       const errors: string[] = [];
       const cleanEmail = email.toLowerCase().trim();
@@ -97,6 +130,10 @@ export const LeadImportModal: React.FC<LeadImportModalProps> = ({ isOpen, onClos
         first_name: firstName,
         last_name: lastName,
         company_name: company,
+        whatsapp_number: whatsapp,
+        alternative_phone: altPhone,
+        city,
+        country,
         isValid: errors.length === 0 && !isDuplicateInPasted && !isDuplicateInDB,
         errors,
         isDuplicateInPasted,
@@ -106,6 +143,10 @@ export const LeadImportModal: React.FC<LeadImportModalProps> = ({ isOpen, onClos
 
     setParsedRows(rows);
     setStep('preview');
+  };
+
+  const handleParse = () => {
+    processRawText(rawText);
   };
 
   const handleExecuteImport = async () => {
@@ -124,6 +165,11 @@ export const LeadImportModal: React.FC<LeadImportModalProps> = ({ isOpen, onClos
         first_name: r.first_name,
         last_name: r.last_name,
         company_name: r.company_name,
+        whatsapp_number: r.whatsapp_number,
+        alternative_phone: r.alternative_phone,
+        city: r.city,
+        country: r.country,
+        list_ids: targetListId ? [targetListId] : [],
         campaign_id: campaignId || undefined,
         campaign_name: selectedCampaign?.name,
         brand_id: brandId || undefined,
@@ -148,7 +194,7 @@ export const LeadImportModal: React.FC<LeadImportModalProps> = ({ isOpen, onClos
   const errorCount = parsedRows.length - validCount;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
       <div className="bg-[#0A0A0A] border border-[#1E3A5F] rounded-xl w-full max-w-4xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
         {/* Header */}
         <div className="p-5 border-b border-[#1E3A5F] flex items-center justify-between bg-[#111827]">
@@ -157,9 +203,9 @@ export const LeadImportModal: React.FC<LeadImportModalProps> = ({ isOpen, onClos
               <FileSpreadsheet className="w-4 h-4 text-[#00C2FF]" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-white">Google Sheets Bulk Lead Import</h3>
+              <h3 className="text-base font-bold text-white">Bulk Upload Leads</h3>
               <p className="text-xs text-[#7B7B7B]">
-                Copy rows from your spreadsheet and paste directly below
+                Upload CSV / Excel TSV or copy-paste rows directly from Google Sheets
               </p>
             </div>
           </div>
@@ -196,13 +242,46 @@ export const LeadImportModal: React.FC<LeadImportModalProps> = ({ isOpen, onClos
             </div>
           ) : step === 'input' ? (
             <>
+              {/* File Upload Zone */}
+              <div className="p-4 border-2 border-dashed border-[#1E3A5F] hover:border-[#00C2FF]/60 rounded-xl bg-[#111827]/40 text-center space-y-2 transition-all">
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleFileUpload}
+                  accept=".csv,.tsv,.txt"
+                  className="hidden"
+                />
+                <div className="flex flex-col items-center justify-center space-y-1">
+                  <Upload className="w-6 h-6 text-[#00C2FF]" />
+                  <p className="font-semibold text-white text-xs">
+                    Upload CSV or TSV File
+                  </p>
+                  <p className="text-[11px] text-[#64748B]">
+                    Drag & drop or browse from your computer
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="px-3 py-1 bg-[#1E3A5F]/60 hover:bg-[#1E3A5F] text-[#00C2FF] border border-[#00C2FF]/30 rounded text-xs font-medium"
+                >
+                  Choose File (.csv, .tsv)
+                </button>
+              </div>
+
+              <div className="relative flex py-1 items-center">
+                <div className="flex-grow border-t border-[#1E3A5F]/60"></div>
+                <span className="flex-shrink mx-4 text-[11px] text-[#64748B] uppercase font-mono">OR PASTE DIRECTLY</span>
+                <div className="flex-grow border-t border-[#1E3A5F]/60"></div>
+              </div>
+
               <div className="p-3 bg-[#111827] border border-[#1E3A5F]/60 rounded-lg text-xs text-[#94A3B8] space-y-1">
-                <span className="font-semibold text-white">Required Format (4 columns):</span>
+                <span className="font-semibold text-white">Supported Columns (Tab or Comma separated):</span>
                 <p className="font-mono text-[11px] text-[#00C2FF]">
-                  Email [TAB] First Name [TAB] Last Name [TAB] Company Name
+                  Email [TAB] First Name [TAB] Last Name [TAB] Company [TAB] WhatsApp [TAB] Alt Number [TAB] City [TAB] Country
                 </p>
                 <p className="text-[11px] text-[#7B7B7B]">
-                  Simply select your cells in Google Sheets, press Ctrl+C, and paste into the box below.
+                  Simply copy rows from Google Sheets, press Ctrl+V below, and preview.
                 </p>
               </div>
 
@@ -211,16 +290,30 @@ export const LeadImportModal: React.FC<LeadImportModalProps> = ({ isOpen, onClos
                   Paste Raw Spreadsheet Rows:
                 </label>
                 <textarea
-                  rows={9}
+                  rows={8}
                   value={rawText}
                   onChange={(e) => setRawText(e.target.value)}
-                  placeholder={`john@example.com\tJohn\tSmith\tABC Ltd\nmary@example.com\tMary\tJones\tXYZ Corp`}
+                  placeholder={`john@example.com\tJohn\tSmith\tABC Ltd\t+447123456789\t+442079460123\nmary@example.com\tMary\tJones\tXYZ Corp`}
                   className="w-full bg-[#111827] text-white font-mono text-xs border border-[#1E3A5F] rounded-lg p-3 focus:outline-none focus:border-[#00C2FF]"
                 />
               </div>
 
               {/* Assignment Selectors */}
-              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 pt-2">
+              <div className="grid grid-cols-1 sm:grid-cols-5 gap-3 pt-2">
+                <div>
+                  <label className="block text-[#94A3B8] font-medium mb-1">Target List</label>
+                  <select
+                    value={targetListId}
+                    onChange={(e) => setTargetListId(e.target.value)}
+                    className="w-full bg-[#111827] text-white border border-[#1E3A5F] rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-[#00C2FF]"
+                  >
+                    <option value="">-- No List --</option>
+                    {lists.map((l) => (
+                      <option key={l.id} value={l.id}>{l.name}</option>
+                    ))}
+                  </select>
+                </div>
+
                 <div>
                   <label className="block text-[#94A3B8] font-medium mb-1">Campaign</label>
                   <select
@@ -250,7 +343,7 @@ export const LeadImportModal: React.FC<LeadImportModalProps> = ({ isOpen, onClos
                 </div>
 
                 <div>
-                  <label className="block text-[#94A3B8] font-medium mb-1">Account</label>
+                  <label className="block text-[#94A3B8] font-medium mb-1">Outbound Account</label>
                   <select
                     value={accountId}
                     onChange={(e) => setAccountId(e.target.value)}
@@ -278,75 +371,70 @@ export const LeadImportModal: React.FC<LeadImportModalProps> = ({ isOpen, onClos
               </div>
             </>
           ) : (
-            /* Preview Step */
+            /* Step: Preview */
             <div className="space-y-4">
-              <div className="flex items-center justify-between p-3 bg-[#111827] border border-[#1E3A5F] rounded-lg">
+              <div className="flex items-center justify-between bg-[#111827] p-3 rounded-lg border border-[#1E3A5F]/60">
                 <div className="flex items-center space-x-4">
-                  <div className="flex items-center space-x-1.5 text-[#00E5A0]">
+                  <div className="flex items-center space-x-1 text-[#00E5A0]">
                     <CheckCircle2 className="w-4 h-4" />
-                    <span className="font-semibold">{validCount} Ready to Import</span>
+                    <span><strong>{validCount}</strong> valid rows ready</span>
                   </div>
                   {errorCount > 0 && (
-                    <div className="flex items-center space-x-1.5 text-[#F97316]">
+                    <div className="flex items-center space-x-1 text-[#F97316]">
                       <AlertTriangle className="w-4 h-4" />
-                      <span className="font-semibold">{errorCount} Issues Detected</span>
+                      <span><strong>{errorCount}</strong> skipped / duplicate</span>
                     </div>
                   )}
                 </div>
+
                 <button
                   onClick={() => setStep('input')}
                   className="text-xs text-[#00C2FF] hover:underline"
                 >
-                  ? Edit Pasted Data
+                  Edit Input Data
                 </button>
               </div>
 
-              {/* Data Table Preview */}
-              <div className="border border-[#1E3A5F] rounded-lg overflow-hidden max-h-72 overflow-y-auto">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-[#111827] text-[#94A3B8] border-b border-[#1E3A5F] sticky top-0">
+              {/* Preview Table */}
+              <div className="border border-[#1E3A5F] rounded-lg overflow-hidden max-h-[350px] overflow-y-auto">
+                <table className="w-full text-left text-xs whitespace-nowrap">
+                  <thead className="bg-[#111827] text-[#00C2FF] sticky top-0 border-b border-[#1E3A5F]">
                     <tr>
-                      <th className="py-2 px-3 font-semibold">Status</th>
-                      <th className="py-2 px-3 font-semibold">Email</th>
-                      <th className="py-2 px-3 font-semibold">First Name</th>
-                      <th className="py-2 px-3 font-semibold">Last Name</th>
-                      <th className="py-2 px-3 font-semibold">Company</th>
-                      <th className="py-2 px-3 font-semibold">Validation Note</th>
+                      <th className="p-2.5">Status</th>
+                      <th className="p-2.5">Email</th>
+                      <th className="p-2.5">Name</th>
+                      <th className="p-2.5">Company</th>
+                      <th className="p-2.5">WhatsApp</th>
+                      <th className="p-2.5">Alt Number</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#1E3A5F]/40 bg-[#0A0A0A]">
                     {parsedRows.map((row, idx) => (
-                      <tr
-                        key={idx}
-                        className={row.isValid ? 'hover:bg-[#111827]/40' : 'bg-red-950/20'}
-                      >
-                        <td className="py-2 px-3">
+                      <tr key={idx} className={row.isValid ? 'hover:bg-[#111827]' : 'bg-red-950/20 text-[#7B7B7B]'}>
+                        <td className="p-2.5">
                           {row.isValid ? (
-                            <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-[#00E5A0]/15 text-[#00E5A0]">
-                              VALID
+                            <span className="px-2 py-0.5 rounded text-[10px] bg-[#00E5A0]/20 text-[#00E5A0] border border-[#00E5A0]/30 font-semibold">
+                              Ready
+                            </span>
+                          ) : row.isDuplicateInDB ? (
+                            <span className="px-2 py-0.5 rounded text-[10px] bg-[#F97316]/20 text-[#F97316] border border-[#F97316]/30">
+                              Duplicate DB
+                            </span>
+                          ) : row.isDuplicateInPasted ? (
+                            <span className="px-2 py-0.5 rounded text-[10px] bg-[#F97316]/20 text-[#F97316] border border-[#F97316]/30">
+                              Duplicate Pasted
                             </span>
                           ) : (
-                            <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-[#F97316]/15 text-[#F97316]">
-                              SKIP
+                            <span className="px-2 py-0.5 rounded text-[10px] bg-red-950 text-red-400 border border-red-800">
+                              {row.errors.join(', ')}
                             </span>
                           )}
                         </td>
-                        <td className="py-2 px-3 text-white font-mono">{row.email || '?'}</td>
-                        <td className="py-2 px-3 text-[#94A3B8]">{row.first_name || '?'}</td>
-                        <td className="py-2 px-3 text-[#94A3B8]">{row.last_name || '?'}</td>
-                        <td className="py-2 px-3 text-[#94A3B8]">{row.company_name || '?'}</td>
-                        <td className="py-2 px-3 text-[11px]">
-                          {row.isDuplicateInDB && (
-                            <span className="text-[#F97316]">Already exists in database</span>
-                          )}
-                          {row.isDuplicateInPasted && (
-                            <span className="text-[#F97316]">Duplicate in pasted rows</span>
-                          )}
-                          {row.errors.map((err, i) => (
-                            <span key={i} className="text-red-400 block">{err}</span>
-                          ))}
-                          {row.isValid && <span className="text-[#00E5A0]">Ready</span>}
-                        </td>
+                        <td className="p-2.5 font-mono text-white">{row.email}</td>
+                        <td className="p-2.5 text-white">{row.first_name} {row.last_name}</td>
+                        <td className="p-2.5 text-white">{row.company_name}</td>
+                        <td className="p-2.5 text-[#00E5A0] font-mono">{row.whatsapp_number || '—'}</td>
+                        <td className="p-2.5 text-[#00C2FF] font-mono">{row.alternative_phone || '—'}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -356,35 +444,32 @@ export const LeadImportModal: React.FC<LeadImportModalProps> = ({ isOpen, onClos
           )}
         </div>
 
-        {/* Footer CTA */}
+        {/* Footer */}
         {!importResult && (
           <div className="p-4 border-t border-[#1E3A5F] flex items-center justify-between bg-[#111827]">
             <button
-              type="button"
               onClick={onClose}
-              className="px-4 py-2 text-xs text-[#7B7B7B] hover:text-white rounded-lg hover:bg-[#0A0A0A]"
+              className="px-4 py-2 text-[#7B7B7B] hover:text-white transition-colors"
             >
               Cancel
             </button>
 
             {step === 'input' ? (
               <button
-                type="button"
-                disabled={!rawText.trim()}
                 onClick={handleParse}
-                className="flex items-center space-x-1.5 px-5 py-2 text-xs font-semibold text-black bg-[#00C2FF] hover:bg-[#00C2FF]/90 rounded-lg transition-all shadow-[0_0_12px_rgba(0,194,255,0.3)] disabled:opacity-50"
+                disabled={!rawText.trim()}
+                className="flex items-center space-x-1 px-5 py-2 bg-[#00C2FF] text-black font-semibold rounded-lg hover:bg-[#00C2FF]/90 transition-all disabled:opacity-40"
               >
-                <span>Review & Validate Data</span>
-                <ArrowRight className="w-3.5 h-3.5" />
+                <span>Parse & Preview</span>
+                <ArrowRight className="w-4 h-4" />
               </button>
             ) : (
               <button
-                type="button"
-                disabled={validCount === 0 || isImporting}
                 onClick={handleExecuteImport}
-                className="flex items-center space-x-1.5 px-6 py-2 text-xs font-semibold text-black bg-[#00E5A0] hover:bg-[#00E5A0]/90 rounded-lg transition-all shadow-[0_0_12px_rgba(0,229,160,0.3)] disabled:opacity-50"
+                disabled={validCount === 0 || isImporting}
+                className="flex items-center space-x-1.5 px-6 py-2 bg-[#00E5A0] text-black font-semibold rounded-lg hover:bg-[#00E5A0]/90 transition-all disabled:opacity-40"
               >
-                <UploadCloud className="w-4 h-4 text-black" />
+                <UploadCloud className="w-4 h-4" />
                 <span>{isImporting ? 'Importing...' : `Import ${validCount} Leads`}</span>
               </button>
             )}

@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import {
   Lead,
+  LeadList,
   Meeting,
   LeadActivity,
   Reminder,
@@ -15,6 +16,7 @@ import {
 } from '../types';
 import {
   INITIAL_LEADS,
+  INITIAL_LISTS,
   INITIAL_MEETINGS,
   INITIAL_ACTIVITIES,
   INITIAL_REMINDERS,
@@ -82,12 +84,25 @@ export interface LeadContextType {
     leadIds: string[];
   }) => Promise<MailMergeBatch>;
 
+  lists: LeadList[];
+  addList: (name: string, description?: string, color?: string) => Promise<LeadList>;
+  deleteList: (id: string) => Promise<void>;
+  updateList: (id: string, updates: Partial<LeadList>) => Promise<void>;
+  addLeadsToList: (listId: string, leadIds: string[]) => Promise<void>;
+  removeLeadsFromList: (listId: string, leadIds: string[]) => Promise<void>;
+
+  bulkUpdateLeads: (ids: string[], updates: Partial<Lead>, reason?: string) => Promise<void>;
+  bulkDeleteLeads: (ids: string[]) => Promise<void>;
+
   addAccount: (account: Omit<Account, 'id' | 'created_at'>) => Promise<void>;
   updateAccount: (id: string, updates: Partial<Account>) => Promise<void>;
+  deleteAccount: (id: string) => Promise<void>;
   addBrand: (brand: Omit<Brand, 'id' | 'created_at'>) => Promise<void>;
   updateBrand: (id: string, updates: Partial<Brand>) => Promise<void>;
+  deleteBrand: (id: string) => Promise<void>;
   addCampaign: (campaign: Omit<Campaign, 'id' | 'created_at'>) => Promise<void>;
   updateCampaign: (id: string, updates: Partial<Campaign>) => Promise<void>;
+  deleteCampaign: (id: string) => Promise<void>;
 
   markNotificationRead: (id: string) => void;
   markAllNotificationsRead: () => void;
@@ -144,6 +159,11 @@ export const LeadProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return saved ? JSON.parse(saved) : INITIAL_BATCHES;
   });
 
+  const [lists, setLists] = useState<LeadList[]>(() => {
+    const saved = localStorage.getItem('ruhit_local_lead_lists');
+    return saved ? JSON.parse(saved) : INITIAL_LISTS;
+  });
+
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [cloudStatus, setCloudStatus] = useState<'connected' | 'demo' | 'error' | 'syncing'>('demo');
   const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
@@ -158,6 +178,7 @@ export const LeadProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => { localStorage.setItem('ruhit_local_accounts', JSON.stringify(accounts)); }, [accounts]);
   useEffect(() => { localStorage.setItem('ruhit_local_campaigns', JSON.stringify(campaigns)); }, [campaigns]);
   useEffect(() => { localStorage.setItem('ruhit_local_batches', JSON.stringify(batches)); }, [batches]);
+  useEffect(() => { localStorage.setItem('ruhit_local_lead_lists', JSON.stringify(lists)); }, [lists]);
 
   const refreshDataFromCloud = useCallback(async () => {
     const supabase = getSupabase();
@@ -282,6 +303,38 @@ export const LeadProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const bulkUpdateLeads = async (ids: string[], updates: Partial<Lead>, reason?: string): Promise<void> => {
+    const idSet = new Set(ids);
+    const now = new Date().toISOString();
+    setLeads((prev) =>
+      prev.map((l) => (idSet.has(l.id) ? ({ ...l, ...updates, updated_at: now } as Lead) : l))
+    );
+    const supabase = getSupabase();
+    if (supabase) {
+      try {
+        await supabase.from('leads').update(updates).in('id', ids);
+      } catch (err) {
+        console.error('Supabase bulk lead update error:', err);
+      }
+    }
+  };
+
+  const bulkDeleteLeads = async (ids: string[]): Promise<void> => {
+    const idSet = new Set(ids);
+    setLeads((prev) => prev.filter((l) => !idSet.has(l.id)));
+    setMeetings((prev) => prev.filter((m) => !idSet.has(m.lead_id)));
+    setActivities((prev) => prev.filter((a) => !idSet.has(a.lead_id)));
+    setReminders((prev) => prev.filter((r) => !idSet.has(r.lead_id)));
+    const supabase = getSupabase();
+    if (supabase) {
+      try {
+        await supabase.from('leads').delete().in('id', ids);
+      } catch (err) {
+        console.error('Supabase bulk lead delete error:', err);
+      }
+    }
+  };
+
   const bulkImportLeads = async (newLeads: Partial<Lead>[]): Promise<{ imported: number; duplicates: number }> => {
     const existingEmails = new Set(leads.map((l) => l.email.toLowerCase().trim()));
     let imported = 0;
@@ -303,6 +356,8 @@ export const LeadProvider: React.FC<{ children: React.ReactNode }> = ({ children
         last_name: item.last_name || '',
         company_name: item.company_name || '',
         whatsapp_number: item.whatsapp_number || '',
+        alternative_phone: item.alternative_phone || '',
+        list_ids: item.list_ids || [],
         country: item.country || '',
         city: item.city || '',
         priority: item.priority || 'Medium',
@@ -720,6 +775,93 @@ export const LeadProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (supabase) await supabase.from('campaigns').update(updates).eq('id', id);
   };
 
+  const deleteAccount = async (id: string): Promise<void> => {
+    setAccounts((prev) => prev.filter((a) => a.id !== id));
+    const supabase = getSupabase();
+    if (supabase) {
+      try {
+        await supabase.from('accounts').delete().eq('id', id);
+      } catch (err) {
+        console.error('Supabase delete account error:', err);
+      }
+    }
+  };
+
+  const deleteBrand = async (id: string): Promise<void> => {
+    setBrands((prev) => prev.filter((b) => b.id !== id));
+    const supabase = getSupabase();
+    if (supabase) {
+      try {
+        await supabase.from('brands').delete().eq('id', id);
+      } catch (err) {
+        console.error('Supabase delete brand error:', err);
+      }
+    }
+  };
+
+  const deleteCampaign = async (id: string): Promise<void> => {
+    setCampaigns((prev) => prev.filter((c) => c.id !== id));
+    const supabase = getSupabase();
+    if (supabase) {
+      try {
+        await supabase.from('campaigns').delete().eq('id', id);
+      } catch (err) {
+        console.error('Supabase delete campaign error:', err);
+      }
+    }
+  };
+
+  const addList = async (name: string, description?: string, color?: string): Promise<LeadList> => {
+    const newList: LeadList = {
+      id: 'list-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5),
+      name: name.trim(),
+      description: description?.trim(),
+      color: color || '#00C2FF',
+      created_at: new Date().toISOString(),
+    };
+    setLists((prev) => [...prev, newList]);
+    return newList;
+  };
+
+  const deleteList = async (id: string): Promise<void> => {
+    setLists((prev) => prev.filter((l) => l.id !== id));
+    setLeads((prev) =>
+      prev.map((l) => ({
+        ...l,
+        list_ids: l.list_ids ? l.list_ids.filter((lid) => lid !== id) : [],
+      }))
+    );
+  };
+
+  const updateList = async (id: string, updates: Partial<LeadList>): Promise<void> => {
+    setLists((prev) => prev.map((l) => (l.id === id ? { ...l, ...updates } : l)));
+  };
+
+  const addLeadsToList = async (listId: string, leadIds: string[]): Promise<void> => {
+    const idSet = new Set(leadIds);
+    setLeads((prev) =>
+      prev.map((l) => {
+        if (!idSet.has(l.id)) return l;
+        const currentLists = l.list_ids || [];
+        if (currentLists.includes(listId)) return l;
+        return { ...l, list_ids: [...currentLists, listId] };
+      })
+    );
+  };
+
+  const removeLeadsFromList = async (listId: string, leadIds: string[]): Promise<void> => {
+    const idSet = new Set(leadIds);
+    setLeads((prev) =>
+      prev.map((l) => {
+        if (!idSet.has(l.id)) return l;
+        return {
+          ...l,
+          list_ids: (l.list_ids || []).filter((lid) => lid !== listId),
+        };
+      })
+    );
+  };
+
   const markNotificationRead = (id: string) => {
     setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, is_read: true } : n)));
   };
@@ -745,9 +887,18 @@ export const LeadProvider: React.FC<{ children: React.ReactNode }> = ({ children
         lastSyncTime,
         errorMessage,
 
+        lists,
+        addList,
+        deleteList,
+        updateList,
+        addLeadsToList,
+        removeLeadsFromList,
+
         addLead,
         updateLead,
         deleteLead,
+        bulkUpdateLeads,
+        bulkDeleteLeads,
         bulkImportLeads,
 
         markInterested,
@@ -772,10 +923,13 @@ export const LeadProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         addAccount,
         updateAccount,
+        deleteAccount,
         addBrand,
         updateBrand,
+        deleteBrand,
         addCampaign,
         updateCampaign,
+        deleteCampaign,
 
         markNotificationRead,
         markAllNotificationsRead,

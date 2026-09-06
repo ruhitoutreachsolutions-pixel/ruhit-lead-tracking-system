@@ -1,4 +1,10 @@
-import { Lead, UserProfile, Brand, Account, Campaign, Meeting, LeadActivity, Reminder, InAppNotification, MailMergeBatch } from '../types';
+import { Lead, LeadList, UserProfile, Brand, Account, Campaign, Meeting, LeadActivity, Reminder, InAppNotification, MailMergeBatch } from '../types';
+
+export const INITIAL_LISTS: LeadList[] = [
+  { id: 'list-1', name: 'UK Tech Outbound', description: 'Priority outreach for UK tech founders and directors', color: '#00C2FF', created_at: '2026-09-01T00:00:00Z' },
+  { id: 'list-2', name: 'Enterprise August', description: 'Enterprise tier prospects for Q3 training contracts', color: '#00E5A0', created_at: '2026-09-01T00:00:00Z' },
+  { id: 'list-3', name: 'High Priority Followups', description: 'Active prospects needing WhatsApp & call followups', color: '#F97316', created_at: '2026-09-02T00:00:00Z' },
+];
 
 export const INITIAL_USERS: UserProfile[] = [
   { id: 'usr-ruhit', email: 'ruhit@ros.com', full_name: 'Ruhit', role: 'admin', avatar_color: '#00C2FF' },
@@ -56,6 +62,8 @@ export const INITIAL_LEADS: Lead[] = [
     first_name: 'Solomon',
     last_name: 'Kariuki',
     company_name: 'Language Institute',
+    alternative_phone: '+254712345678',
+    list_ids: ['list-1'],
     country: 'Kenya',
     city: 'Nairobi',
     priority: 'High',
@@ -90,6 +98,8 @@ export const INITIAL_LEADS: Lead[] = [
     last_name: 'Henderson',
     company_name: 'Workplace Safety Group',
     whatsapp_number: '+443333208568',
+    alternative_phone: '+442079460123',
+    list_ids: ['list-1', 'list-2'],
     country: 'United Kingdom',
     city: 'London',
     priority: 'High',

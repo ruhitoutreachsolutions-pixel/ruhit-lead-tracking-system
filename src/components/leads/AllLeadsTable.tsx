@@ -17,17 +17,27 @@ import {
   X,
   RotateCcw,
   Copy,
-  Check
+  Check,
+  Plus,
+  Upload,
+  Edit3,
+  List as ListIcon,
+  UserPlus,
+  FolderPlus
 } from 'lucide-react';
 import { useLeads } from '../../context/LeadContext';
 import { useAuth } from '../../context/AuthContext';
-import { Lead } from '../../types';
+import { Lead, LeadList } from '../../types';
 import { formatTo12Hour, formatDateFormatted } from '../../lib/formatTime';
+import { BulkEditModal } from './BulkEditModal';
+import { LeadImportModal } from './LeadImportModal';
 
 interface AllLeadsTableProps {
   searchQuery: string;
   onSelectLead: (leadId: string) => void;
   onOpenScheduleMeeting: (leadId: string) => void;
+  onOpenAddLead?: () => void;
+  onOpenBulkUpload?: () => void;
 }
 
 interface ColumnFilters {
@@ -66,18 +76,37 @@ export const AllLeadsTable: React.FC<AllLeadsTableProps> = ({
   searchQuery,
   onSelectLead,
   onOpenScheduleMeeting,
+  onOpenAddLead,
+  onOpenBulkUpload,
 }) => {
   const {
     leads,
     campaigns,
     accounts,
+    lists,
+    addList,
+    deleteList,
+    addLeadsToList,
     deleteLead,
+    bulkDeleteLeads,
     markInterested,
     togglePending,
     recordWhatsAppSent,
     recordCallDone,
   } = useLeads();
   const { allUsers } = useAuth();
+
+  // List-wise Tab Filter State
+  const [activeListTab, setActiveListTab] = useState<string>('all');
+  const [isNewListModalOpen, setIsNewListModalOpen] = useState(false);
+  const [newListName, setNewListName] = useState('');
+  const [newListDesc, setNewListDesc] = useState('');
+
+  // Bulk Edit Modal State
+  const [isBulkEditOpen, setIsBulkEditOpen] = useState(false);
+
+  // Local Bulk Upload Modal State (in case external trigger not supplied)
+  const [isLocalImportOpen, setIsLocalImportOpen] = useState(false);
 
   // In-Header Column Filter States
   const [colFilters, setColFilters] = useState<ColumnFilters>(INITIAL_FILTERS);
@@ -94,8 +123,9 @@ export const AllLeadsTable: React.FC<AllLeadsTableProps> = ({
   // Bulk Selection State
   const [selectedLeadIds, setSelectedLeadIds] = useState<string[]>([]);
 
-  // Copied WhatsApp state
+  // Copied WhatsApp / Alt phone state
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [copiedAltId, setCopiedAltId] = useState<string | null>(null);
 
   // Ref for closing dropdown when clicking outside
   const popoverRef = useRef<HTMLDivElement>(null);
@@ -121,7 +151,22 @@ export const AllLeadsTable: React.FC<AllLeadsTableProps> = ({
     setTimeout(() => setCopiedId(null), 2000);
   };
 
-  // Check if any column filter is active
+  const handleCopyAltPhone = (id: string, num: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    navigator.clipboard.writeText(num);
+    setCopiedAltId(id);
+    setTimeout(() => setCopiedAltId(null), 2000);
+  };
+
+  const handleSort = (field: keyof Lead) => {
+    if (sortField === field) {
+      setSortAsc(!sortAsc);
+    } else {
+      setSortField(field);
+      setSortAsc(true);
+    }
+  };
+
   const hasActiveFilters = useMemo(() => {
     return (
       colFilters.email.trim() !== '' ||
@@ -157,6 +202,13 @@ export const AllLeadsTable: React.FC<AllLeadsTableProps> = ({
     const todayStr = now.toISOString().split('T')[0];
 
     return leads.filter((lead) => {
+      // 0. List Tab Filter
+      if (activeListTab !== 'all') {
+        if (!lead.list_ids?.includes(activeListTab)) {
+          return false;
+        }
+      }
+
       // Global Search from top bar
       if (searchQuery) {
         const q = searchQuery.toLowerCase();
@@ -166,6 +218,7 @@ export const AllLeadsTable: React.FC<AllLeadsTableProps> = ({
           lead.last_name?.toLowerCase().includes(q) ||
           lead.company_name?.toLowerCase().includes(q) ||
           lead.whatsapp_number?.toLowerCase().includes(q) ||
+          lead.alternative_phone?.toLowerCase().includes(q) ||
           lead.city?.toLowerCase().includes(q) ||
           lead.country?.toLowerCase().includes(q) ||
           lead.campaign_name?.toLowerCase().includes(q) ||
@@ -212,111 +265,114 @@ export const AllLeadsTable: React.FC<AllLeadsTableProps> = ({
 
       // 6. Email 1 date filter
       if (colFilters.email1 !== 'all') {
-        const d = lead.email_1_date || lead.email_1 || '';
+        const d = lead.email_1_date || (lead.email_1 && !['Sent', 'Opened', 'Replied', '-'].includes(lead.email_1) ? lead.email_1 : '');
         if (colFilters.email1 === 'sent' && !d) return false;
         if (colFilters.email1 === 'unsent' && d) return false;
       }
 
       // 7. Email 2 date filter
       if (colFilters.email2 !== 'all') {
-        const d = lead.email_2_date || lead.email_2 || '';
+        const d = lead.email_2_date || (lead.email_2 && !['Sent', 'Opened', 'Replied', '-'].includes(lead.email_2) ? lead.email_2 : '');
         if (colFilters.email2 === 'sent' && !d) return false;
         if (colFilters.email2 === 'unsent' && d) return false;
       }
 
       // 8. Email 3 date filter
       if (colFilters.email3 !== 'all') {
-        const d = lead.email_3_date || lead.email_3 || '';
+        const d = lead.email_3_date || (lead.email_3 && !['Sent', 'Opened', 'Replied', '-'].includes(lead.email_3) ? lead.email_3 : '');
         if (colFilters.email3 === 'sent' && !d) return false;
         if (colFilters.email3 === 'unsent' && d) return false;
       }
 
-      // 9. WhatsApp Follow Up filter
+      // 9. WhatsApp Follow Up Filter
       if (colFilters.whatsappFollowup !== 'all') {
-        if (lead.whatsapp_followup_stage !== colFilters.whatsappFollowup) return false;
+        if (lead.whatsapp_followup_stage !== colFilters.whatsappFollowup) {
+          return false;
+        }
       }
 
-      // 10. Interested Email Follow Up filter
+      // 10. Interested Email Follow Up Filter
       if (colFilters.interestedFollowup !== 'all') {
-        if (lead.interested_email_followup_stage !== colFilters.interestedFollowup) return false;
+        if (lead.interested_email_followup_stage !== colFilters.interestedFollowup) {
+          return false;
+        }
       }
 
-      // 11. Account Name filter
+      // 11. Account filter
       if (colFilters.account !== 'all') {
         if (lead.account_id !== colFilters.account && lead.account_name !== colFilters.account) {
           return false;
         }
       }
 
-      // 12. Pipeline Stage filter
+      // 12. Pipeline Stage filter (Includes DNC)
       if (colFilters.pipelineStage !== 'all') {
-        switch (colFilters.pipelineStage) {
-          case 'interested':
-            if (!lead.is_interested) return false;
-            break;
-          case 'scheduled':
-            if (!lead.is_meeting_scheduled) return false;
-            break;
-          case 'done':
-            if (!lead.is_meeting_done) return false;
-            break;
-          case 'count_yes':
-            if (lead.meeting_count_type !== 'YES') return false;
-            break;
-          case 'count_no':
-            if (lead.meeting_count_type !== 'NO') return false;
-            break;
-          case 'pending':
-            if (!lead.is_pending) return false;
-            break;
-          case 'outreach':
-            if (lead.is_interested || lead.is_meeting_scheduled || lead.is_meeting_done) return false;
-            break;
+        if (colFilters.pipelineStage === 'dnc') {
+          if (lead.priority !== 'DNC') return false;
+        } else if (colFilters.pipelineStage === 'pending') {
+          if (!lead.is_pending || lead.meeting_count_type === 'NO') return false;
+        } else if (colFilters.pipelineStage === 'outreach') {
+          if (lead.is_interested || lead.is_meeting_scheduled || lead.is_meeting_done || lead.meeting_count_type || lead.priority === 'DNC') return false;
+        } else if (colFilters.pipelineStage === 'interested') {
+          if (!lead.is_interested || lead.priority === 'DNC') return false;
+        } else if (colFilters.pipelineStage === 'scheduled') {
+          if (!lead.is_meeting_scheduled) return false;
+        } else if (colFilters.pipelineStage === 'done') {
+          if (!lead.is_meeting_done) return false;
+        } else if (colFilters.pipelineStage === 'count_yes') {
+          if (lead.meeting_count_type !== 'YES') return false;
+        } else if (colFilters.pipelineStage === 'count_no') {
+          if (lead.meeting_count_type !== 'NO') return false;
         }
       }
 
-      // 13. Date Added filter
-      if (colFilters.dateAdded !== 'all' && lead.created_at) {
-        const createdDate = new Date(lead.created_at);
-        const leadDateStr = lead.created_at.split('T')[0];
-
-        if (colFilters.dateAdded === 'today') {
-          if (leadDateStr !== todayStr) return false;
-        } else if (colFilters.dateAdded === 'last_7_days') {
-          const diffDays = (now.getTime() - createdDate.getTime()) / (1000 * 3600 * 24);
-          if (diffDays > 7) return false;
-        } else if (colFilters.dateAdded === 'last_30_days') {
-          const diffDays = (now.getTime() - createdDate.getTime()) / (1000 * 3600 * 24);
-          if (diffDays > 30) return false;
-        } else if (colFilters.dateAdded === 'this_month') {
-          if (createdDate.getMonth() !== now.getMonth() || createdDate.getFullYear() !== now.getFullYear()) {
-            return false;
-          }
+      // 13. Date Added Filter
+      if (colFilters.dateAdded !== 'all') {
+        const leadDate = lead.created_at ? lead.created_at.split('T')[0] : '';
+        if (colFilters.dateAdded === 'today' && leadDate !== todayStr) return false;
+        if (colFilters.dateAdded === 'week') {
+          const sevenDaysAgo = new Date();
+          sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+          if (new Date(lead.created_at) < sevenDaysAgo) return false;
+        }
+        if (colFilters.dateAdded === 'month') {
+          const thirtyDaysAgo = new Date();
+          thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+          if (new Date(lead.created_at) < thirtyDaysAgo) return false;
         }
       }
 
       return true;
     });
-  }, [leads, searchQuery, colFilters]);
+  }, [leads, activeListTab, searchQuery, colFilters]);
 
   // Sort logic
   const sortedLeads = useMemo(() => {
     return [...filteredLeads].sort((a, b) => {
-      const valA = a[sortField] ?? '';
-      const valB = b[sortField] ?? '';
+      let valA = a[sortField];
+      let valB = b[sortField];
+
+      if (valA === undefined || valA === null) valA = '';
+      if (valB === undefined || valB === null) valB = '';
+
+      if (typeof valA === 'string' && typeof valB === 'string') {
+        return sortAsc ? valA.localeCompare(valB) : valB.localeCompare(valA);
+      }
       if (valA < valB) return sortAsc ? -1 : 1;
       if (valA > valB) return sortAsc ? 1 : -1;
       return 0;
     });
   }, [filteredLeads, sortField, sortAsc]);
 
-  // Paginated Leads
-  const totalPages = Math.ceil(sortedLeads.length / pageSize) || 1;
+  // Paginated leads
   const paginatedLeads = useMemo(() => {
     const start = (currentPage - 1) * pageSize;
     return sortedLeads.slice(start, start + pageSize);
   }, [sortedLeads, currentPage, pageSize]);
 
+  const totalPages = Math.ceil(sortedLeads.length / pageSize) || 1;
+
+  // Bulk actions
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
       setSelectedLeadIds(paginatedLeads.map((l) => l.id));
@@ -327,19 +383,21 @@ export const AllLeadsTable: React.FC<AllLeadsTableProps> = ({
 
   const handleToggleSelectOne = (id: string) => {
     setSelectedLeadIds((prev) =>
-      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
     );
   };
 
-  const handleSort = (field: keyof Lead) => {
-    if (sortField === field) {
-      setSortAsc(!sortAsc);
-    } else {
-      setSortField(field);
-      setSortAsc(true);
-    }
+  const handleCreateNewList = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newListName.trim()) return;
+    const newList = await addList(newListName.trim(), newListDesc.trim());
+    setActiveListTab(newList.id);
+    setNewListName('');
+    setNewListDesc('');
+    setIsNewListModalOpen(false);
   };
 
+  // Export filtered leads to CSV
   const handleExportCSV = () => {
     const headers = [
       'Email',
@@ -349,6 +407,7 @@ export const AllLeadsTable: React.FC<AllLeadsTableProps> = ({
       'City',
       'Country',
       'WhatsApp Number',
+      'Alternative Number',
       'Campaign',
       'Email 1 Date',
       'Email 2 Date',
@@ -369,14 +428,15 @@ export const AllLeadsTable: React.FC<AllLeadsTableProps> = ({
       l.city || '',
       l.country || '',
       l.whatsapp_number || '',
+      l.alternative_phone || '',
       l.campaign_name || '',
-      l.email_1_date || l.email_1 || '-',
-      l.email_2_date || l.email_2 || '-',
-      l.email_3_date || l.email_3 || '-',
-      l.whatsapp_followup_stage || '-',
-      l.interested_email_followup_stage || '-',
+      l.email_1_date || (l.email_1 && !['Sent', 'Opened', 'Replied', '-'].includes(l.email_1) ? l.email_1 : ''),
+      l.email_2_date || (l.email_2 && !['Sent', 'Opened', 'Replied', '-'].includes(l.email_2) ? l.email_2 : ''),
+      l.email_3_date || (l.email_3 && !['Sent', 'Opened', 'Replied', '-'].includes(l.email_3) ? l.email_3 : ''),
+      l.whatsapp_followup_stage || '',
+      l.interested_email_followup_stage || '',
       l.account_name || '',
-      l.is_meeting_done ? 'Meeting Done' : l.is_meeting_scheduled ? 'Meeting Scheduled' : l.is_interested ? 'Interested' : 'Outreach',
+      l.priority === 'DNC' ? 'DNC' : l.is_meeting_done ? 'Meeting Done' : l.is_meeting_scheduled ? 'Meeting Scheduled' : l.is_interested ? 'Interested' : 'Outreach',
       l.meeting_count_type || '',
       l.is_pending ? 'YES' : 'NO',
       l.created_at ? l.created_at.split('T')[0] : '',
@@ -418,104 +478,108 @@ export const AllLeadsTable: React.FC<AllLeadsTableProps> = ({
 
   return (
     <div className="space-y-3">
-      {/* Top Toolbar: Showing Results & Export CSV (Standalone filter box removed) */}
-      <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
-        {/* Left: Lead Counter & Active Filter Pills */}
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-white font-medium">
-            Total Leads:{' '}
-            <span className="font-mono text-[#00C2FF] font-bold">
-              {filteredLeads.length}
-            </span>
-            {filteredLeads.length !== leads.length && (
-              <span className="text-[#64748B] text-[11px] ml-1">
-                (filtered from {leads.length})
-              </span>
-            )}
-          </span>
-
-          {hasActiveFilters && (
-            <div className="flex flex-wrap items-center gap-1.5 ml-2">
-              {colFilters.email && (
-                <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full bg-[#00C2FF]/10 text-[#00C2FF] border border-[#00C2FF]/30 text-[11px]">
-                  <span>Email: {colFilters.email}</span>
-                  <X className="w-3 h-3 cursor-pointer hover:text-white" onClick={() => updateFilter('email', '')} />
-                </span>
-              )}
-              {colFilters.firstName && (
-                <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full bg-[#00C2FF]/10 text-[#00C2FF] border border-[#00C2FF]/30 text-[11px]">
-                  <span>Name: {colFilters.firstName}</span>
-                  <X className="w-3 h-3 cursor-pointer hover:text-white" onClick={() => updateFilter('firstName', '')} />
-                </span>
-              )}
-              {colFilters.city && (
-                <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full bg-[#00C2FF]/10 text-[#00C2FF] border border-[#00C2FF]/30 text-[11px]">
-                  <span>City: {colFilters.city}</span>
-                  <X className="w-3 h-3 cursor-pointer hover:text-white" onClick={() => updateFilter('city', '')} />
-                </span>
-              )}
-              {colFilters.companyName && (
-                <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full bg-[#00C2FF]/10 text-[#00C2FF] border border-[#00C2FF]/30 text-[11px]">
-                  <span>Company: {colFilters.companyName}</span>
-                  <X className="w-3 h-3 cursor-pointer hover:text-white" onClick={() => updateFilter('companyName', '')} />
-                </span>
-              )}
-              {colFilters.campaign !== 'all' && (
-                <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full bg-[#00C2FF]/10 text-[#00C2FF] border border-[#00C2FF]/30 text-[11px]">
-                  <span>Campaign: {campaigns.find(c => c.id === colFilters.campaign)?.name || colFilters.campaign}</span>
-                  <X className="w-3 h-3 cursor-pointer hover:text-white" onClick={() => updateFilter('campaign', 'all')} />
-                </span>
-              )}
-              {colFilters.whatsappFollowup !== 'all' && (
-                <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full bg-[#00E5A0]/10 text-[#00E5A0] border border-[#00E5A0]/30 text-[11px]">
-                  <span>WA: {colFilters.whatsappFollowup}</span>
-                  <X className="w-3 h-3 cursor-pointer hover:text-white" onClick={() => updateFilter('whatsappFollowup', 'all')} />
-                </span>
-              )}
-              {colFilters.interestedFollowup !== 'all' && (
-                <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full bg-[#00C2FF]/10 text-[#00C2FF] border border-[#00C2FF]/30 text-[11px]">
-                  <span>FW: {colFilters.interestedFollowup}</span>
-                  <X className="w-3 h-3 cursor-pointer hover:text-white" onClick={() => updateFilter('interestedFollowup', 'all')} />
-                </span>
-              )}
-              {colFilters.pipelineStage !== 'all' && (
-                <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full bg-[#00E5A0]/10 text-[#00E5A0] border border-[#00E5A0]/30 text-[11px]">
-                  <span>Stage: {colFilters.pipelineStage}</span>
-                  <X className="w-3 h-3 cursor-pointer hover:text-white" onClick={() => updateFilter('pipelineStage', 'all')} />
-                </span>
-              )}
-              {colFilters.account !== 'all' && (
-                <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full bg-[#00C2FF]/10 text-[#00C2FF] border border-[#00C2FF]/30 text-[11px]">
-                  <span>Account: {accounts.find(a => a.id === colFilters.account)?.account_name || colFilters.account}</span>
-                  <X className="w-3 h-3 cursor-pointer hover:text-white" onClick={() => updateFilter('account', 'all')} />
-                </span>
-              )}
-              <button
-                onClick={resetAllFilters}
-                className="inline-flex items-center space-x-1 px-2 py-0.5 text-[11px] text-[#F97316] hover:text-white hover:bg-[#F97316]/20 rounded transition-colors"
-              >
-                <RotateCcw className="w-3 h-3" />
-                <span>Clear All</span>
-              </button>
-            </div>
-          )}
-        </div>
-
-        {/* Right: Export CSV & Page size */}
-        <div className="flex items-center space-x-2">
-          <select
-            value={pageSize}
-            onChange={(e) => {
-              setPageSize(Number(e.target.value));
+      {/* 1. LIST-WISE NAVIGATION TABS */}
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#1E3A5F]/60 pb-2.5">
+        <div className="flex items-center space-x-2 overflow-x-auto py-1 max-w-3xl">
+          {/* All Leads Tab */}
+          <button
+            onClick={() => {
+              setActiveListTab('all');
               setCurrentPage(1);
             }}
-            className="bg-[#111827] text-white border border-[#1E3A5F] rounded-lg px-2.5 py-1.5 text-xs focus:border-[#00C2FF]"
+            className={`flex items-center space-x-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 ${
+              activeListTab === 'all'
+                ? 'bg-[#00C2FF] text-black shadow-md font-bold'
+                : 'bg-[#111827] text-[#94A3B8] hover:text-white border border-[#1E3A5F]'
+            }`}
           >
-            <option value={10}>10 / page</option>
-            <option value={20}>20 / page</option>
-            <option value={50}>50 / page</option>
-            <option value={100}>100 / page</option>
-          </select>
+            <ListIcon className="w-3.5 h-3.5" />
+            <span>All Leads</span>
+            <span
+              className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold ${
+                activeListTab === 'all'
+                  ? 'bg-black/20 text-black'
+                  : 'bg-[#1E3A5F]/60 text-[#00C2FF]'
+              }`}
+            >
+              {leads.length}
+            </span>
+          </button>
+
+          {/* Custom Lists Tabs */}
+          {lists.map((list) => {
+            const listCount = leads.filter((l) => l.list_ids?.includes(list.id)).length;
+            const isActive = activeListTab === list.id;
+            return (
+              <div key={list.id} className="flex items-center group shrink-0">
+                <button
+                  onClick={() => {
+                    setActiveListTab(list.id);
+                    setCurrentPage(1);
+                  }}
+                  className={`flex items-center space-x-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                    isActive
+                      ? 'bg-[#00E5A0] text-black shadow-md font-bold'
+                      : 'bg-[#111827] text-[#94A3B8] hover:text-white border border-[#1E3A5F]'
+                  }`}
+                >
+                  <span className="truncate max-w-[150px]">{list.name}</span>
+                  <span
+                    className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold ${
+                      isActive ? 'bg-black/20 text-black' : 'bg-[#1E3A5F]/60 text-[#00E5A0]'
+                    }`}
+                  >
+                    {listCount}
+                  </span>
+                </button>
+                <button
+                  onClick={() => {
+                    if (window.confirm(`Delete list "${list.name}"? Leads in this list will remain in the database.`)) {
+                      deleteList(list.id);
+                      if (activeListTab === list.id) setActiveListTab('all');
+                    }
+                  }}
+                  className="p-1 ml-0.5 text-neutral-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                  title="Delete List"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </div>
+            );
+          })}
+
+          {/* + New List Button */}
+          <button
+            onClick={() => setIsNewListModalOpen(true)}
+            className="flex items-center space-x-1 px-3 py-1.5 bg-[#111827] hover:bg-[#1E3A5F]/60 text-[#00C2FF] border border-[#00C2FF]/40 rounded-lg text-xs font-semibold transition-all shrink-0 shadow-sm"
+          >
+            <FolderPlus className="w-3.5 h-3.5" />
+            <span>+ New List</span>
+          </button>
+        </div>
+
+        {/* Right Toolbar Action Buttons */}
+        <div className="flex items-center space-x-2 shrink-0">
+          {onOpenAddLead && (
+            <button
+              onClick={onOpenAddLead}
+              className="flex items-center space-x-1 px-3 py-1.5 bg-[#00E5A0] hover:bg-[#00E5A0]/90 text-black font-semibold text-xs rounded-lg transition-all shadow-sm"
+            >
+              <Plus className="w-3.5 h-3.5 stroke-[3]" />
+              <span>Add Single Lead</span>
+            </button>
+          )}
+
+          <button
+            onClick={() => {
+              if (onOpenBulkUpload) onOpenBulkUpload();
+              else setIsLocalImportOpen(true);
+            }}
+            className="flex items-center space-x-1.5 px-3 py-1.5 bg-[#111827] hover:bg-[#182234] text-white border border-[#1E3A5F] rounded-lg transition-all text-xs shadow-sm hover:border-[#00C2FF]/60"
+          >
+            <Upload className="w-3.5 h-3.5 text-[#00C2FF]" />
+            <span>Bulk Upload</span>
+          </button>
 
           <button
             onClick={handleExportCSV}
@@ -527,52 +591,188 @@ export const AllLeadsTable: React.FC<AllLeadsTableProps> = ({
         </div>
       </div>
 
-      {/* Bulk Action Bar (when selected) */}
+      {/* 2. SECONDARY CONTROLS & FILTER PILLS */}
+      <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
+        {/* Left: Lead Counter & Active Filter Pills */}
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-white font-medium">
+            Showing Leads:{' '}
+            <span className="font-mono text-[#00C2FF] font-bold">
+              {filteredLeads.length}
+            </span>
+            {filteredLeads.length !== leads.length && (
+              <span className="text-[#64748B] text-[11px] ml-1">
+                (of {leads.length} total)
+              </span>
+            )}
+          </span>
+
+          {hasActiveFilters && (
+            <div className="flex flex-wrap items-center gap-1.5 ml-2">
+              {colFilters.email && (
+                <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full bg-[#00C2FF]/10 text-[#00C2FF] border border-[#00C2FF]/30 text-[11px]">
+                  <span>Email: {colFilters.email}</span>
+                  <X className="w-3 h-3 cursor-pointer" onClick={() => updateFilter('email', '')} />
+                </span>
+              )}
+              {colFilters.firstName && (
+                <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full bg-[#00C2FF]/10 text-[#00C2FF] border border-[#00C2FF]/30 text-[11px]">
+                  <span>Name: {colFilters.firstName}</span>
+                  <X className="w-3 h-3 cursor-pointer" onClick={() => updateFilter('firstName', '')} />
+                </span>
+              )}
+              {colFilters.city && (
+                <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full bg-[#00C2FF]/10 text-[#00C2FF] border border-[#00C2FF]/30 text-[11px]">
+                  <span>City: {colFilters.city}</span>
+                  <X className="w-3 h-3 cursor-pointer" onClick={() => updateFilter('city', '')} />
+                </span>
+              )}
+              {colFilters.companyName && (
+                <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full bg-[#00C2FF]/10 text-[#00C2FF] border border-[#00C2FF]/30 text-[11px]">
+                  <span>Company: {colFilters.companyName}</span>
+                  <X className="w-3 h-3 cursor-pointer" onClick={() => updateFilter('companyName', '')} />
+                </span>
+              )}
+              {colFilters.pipelineStage !== 'all' && (
+                <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full bg-[#00E5A0]/10 text-[#00E5A0] border border-[#00E5A0]/30 text-[11px]">
+                  <span>Stage: {colFilters.pipelineStage}</span>
+                  <X className="w-3 h-3 cursor-pointer" onClick={() => updateFilter('pipelineStage', 'all')} />
+                </span>
+              )}
+              {colFilters.campaign !== 'all' && (
+                <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full bg-[#F97316]/10 text-[#F97316] border border-[#F97316]/30 text-[11px]">
+                  <span>Campaign Filtered</span>
+                  <X className="w-3 h-3 cursor-pointer" onClick={() => updateFilter('campaign', 'all')} />
+                </span>
+              )}
+              {colFilters.whatsappFollowup !== 'all' && (
+                <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full bg-[#00E5A0]/10 text-[#00E5A0] border border-[#00E5A0]/30 text-[11px]">
+                  <span>WA: {colFilters.whatsappFollowup}</span>
+                  <X className="w-3 h-3 cursor-pointer" onClick={() => updateFilter('whatsappFollowup', 'all')} />
+                </span>
+              )}
+              {colFilters.interestedFollowup !== 'all' && (
+                <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full bg-[#00C2FF]/10 text-[#00C2FF] border border-[#00C2FF]/30 text-[11px]">
+                  <span>FW: {colFilters.interestedFollowup}</span>
+                  <X className="w-3 h-3 cursor-pointer" onClick={() => updateFilter('interestedFollowup', 'all')} />
+                </span>
+              )}
+
+              <button
+                onClick={resetAllFilters}
+                className="inline-flex items-center space-x-1 text-[#64748B] hover:text-[#00C2FF] text-[11px] underline ml-1"
+              >
+                <RotateCcw className="w-3 h-3" />
+                <span>Reset All Filters</span>
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Right: Page size */}
+        <div className="flex items-center space-x-2">
+          <label className="text-[#94A3B8] text-[11px]">Page size:</label>
+          <select
+            value={pageSize}
+            onChange={(e) => {
+              setPageSize(Number(e.target.value));
+              setCurrentPage(1);
+            }}
+            className="bg-[#111827] text-white border border-[#1E3A5F] rounded-lg px-2.5 py-1 text-xs focus:border-[#00C2FF]"
+          >
+            <option value={10}>10</option>
+            <option value={20}>20</option>
+            <option value={50}>50</option>
+            <option value={100}>100</option>
+          </select>
+        </div>
+      </div>
+
+      {/* 3. BULK ACTION BAR (when selected) */}
       {selectedLeadIds.length > 0 && (
-        <div className="p-2.5 bg-[#182234] border border-[#00C2FF]/40 rounded-lg flex items-center justify-between text-xs text-white animate-in slide-in-from-top-1">
+        <div className="p-2.5 bg-[#182234] border border-[#00C2FF]/40 rounded-lg flex flex-wrap items-center justify-between gap-2 text-xs text-white animate-in slide-in-from-top-1 shadow-xl">
           <div className="flex items-center space-x-3">
             <span className="font-semibold text-[#00C2FF]">
               {selectedLeadIds.length} leads selected
             </span>
           </div>
-          <div className="flex items-center space-x-2">
+
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Bulk Edit Button */}
+            <button
+              onClick={() => setIsBulkEditOpen(true)}
+              className="flex items-center space-x-1.5 px-3 py-1 bg-[#00C2FF] hover:bg-[#00C2FF]/80 text-black font-bold rounded shadow-sm transition-all"
+            >
+              <Edit3 className="w-3.5 h-3.5" />
+              <span>Bulk Edit ({selectedLeadIds.length})</span>
+            </button>
+
+            {/* Add to List dropdown */}
+            <select
+              onChange={async (e) => {
+                if (e.target.value) {
+                  await addLeadsToList(e.target.value, selectedLeadIds);
+                  setSelectedLeadIds([]);
+                }
+              }}
+              defaultValue=""
+              className="bg-[#0A0A0A] text-white border border-[#1E3A5F] rounded px-2.5 py-1 text-xs focus:border-[#00C2FF]"
+            >
+              <option value="" disabled>Add to List...</option>
+              {lists.map((l) => (
+                <option key={l.id} value={l.id}>{l.name}</option>
+              ))}
+            </select>
+
             <button
               onClick={() => {
                 selectedLeadIds.forEach((id) => togglePending(id, true));
                 setSelectedLeadIds([]);
               }}
-              className="px-2.5 py-1 bg-[#F97316]/20 text-[#F97316] border border-[#F97316]/40 rounded hover:bg-[#F97316]/30"
+              className="px-2.5 py-1 bg-[#F97316]/20 text-[#F97316] border border-[#F97316]/40 rounded hover:bg-[#F97316]/30 font-medium"
             >
               Set Pending "YES"
             </button>
+
             <button
               onClick={() => {
                 selectedLeadIds.forEach((id) => markInterested(id));
                 setSelectedLeadIds([]);
               }}
-              className="px-2.5 py-1 bg-[#00E5A0]/20 text-[#00E5A0] border border-[#00E5A0]/40 rounded hover:bg-[#00E5A0]/30"
+              className="px-2.5 py-1 bg-[#00E5A0]/20 text-[#00E5A0] border border-[#00E5A0]/40 rounded hover:bg-[#00E5A0]/30 font-medium"
             >
               Mark Interested
             </button>
+
+            {/* Delete Selected Leads */}
             <button
-              onClick={() => {
-                if (window.confirm(`Delete ${selectedLeadIds.length} selected leads?`)) {
-                  selectedLeadIds.forEach((id) => deleteLead(id));
+              onClick={async () => {
+                if (window.confirm(`Are you sure you want to permanently delete ${selectedLeadIds.length} selected leads? This action cannot be undone.`)) {
+                  await bulkDeleteLeads(selectedLeadIds);
                   setSelectedLeadIds([]);
                 }
               }}
-              className="p-1 text-red-400 hover:bg-red-950/40 rounded"
-              title="Delete Selected"
+              className="flex items-center space-x-1 px-2.5 py-1 bg-red-950/40 text-red-400 border border-red-800/60 rounded hover:bg-red-900/60 font-medium transition-colors"
+              title="Delete Selected Leads"
             >
-              <Trash2 className="w-4 h-4" />
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>Delete Selected</span>
+            </button>
+
+            <button
+              onClick={() => setSelectedLeadIds([])}
+              className="p-1 text-[#7B7B7B] hover:text-white"
+              title="Clear Selection"
+            >
+              <X className="w-4 h-4" />
             </button>
           </div>
         </div>
       )}
 
-      {/* Main Table */}
+      {/* 4. MAIN TABLE */}
       <div className="bg-[#0A0A0A] border border-[#1E3A5F]/70 rounded-xl overflow-hidden shadow-2xl relative">
-        <div className="overflow-x-auto min-h-[420px]">
+        <div className="overflow-x-auto min-h-[440px]">
           <table className="w-full text-left text-xs whitespace-nowrap">
             <thead className="bg-[#0A0A0A] text-[#00C2FF] border-b border-[#1E3A5F] select-none">
               <tr>
@@ -603,7 +803,7 @@ export const AllLeadsTable: React.FC<AllLeadsTableProps> = ({
                         <ArrowUpDown className="w-3 h-3 text-[#64748B]" />
                       )}
                     </div>
-                    {renderFunnelIcon('email', Boolean(colFilters.email.trim()))}
+                    {renderFunnelIcon('email', Boolean(colFilters.email))}
                   </div>
                 </th>
 
@@ -621,25 +821,25 @@ export const AllLeadsTable: React.FC<AllLeadsTableProps> = ({
                         <ArrowUpDown className="w-3 h-3 text-[#64748B]" />
                       )}
                     </div>
-                    {renderFunnelIcon('firstName', Boolean(colFilters.firstName.trim()))}
+                    {renderFunnelIcon('firstName', Boolean(colFilters.firstName))}
                   </div>
                 </th>
 
-                {/* CITY */}
+                {/* CITY / COUNTRY */}
                 <th className="py-3 px-3 font-semibold font-mono tracking-wider text-[#00C2FF] border-r border-[#1E3A5F]/40">
                   <div className="flex items-center justify-between space-x-2">
                     <div
                       className="flex items-center space-x-1 cursor-pointer hover:text-white"
                       onClick={() => handleSort('city')}
                     >
-                      <span>CITY</span>
+                      <span>CITY / LOCATION</span>
                       {sortField === 'city' ? (
                         sortAsc ? <ArrowUp className="w-3 h-3 text-[#00C2FF]" /> : <ArrowDown className="w-3 h-3 text-[#00C2FF]" />
                       ) : (
                         <ArrowUpDown className="w-3 h-3 text-[#64748B]" />
                       )}
                     </div>
-                    {renderFunnelIcon('city', Boolean(colFilters.city.trim()))}
+                    {renderFunnelIcon('city', Boolean(colFilters.city))}
                   </div>
                 </th>
 
@@ -657,8 +857,13 @@ export const AllLeadsTable: React.FC<AllLeadsTableProps> = ({
                         <ArrowUpDown className="w-3 h-3 text-[#64748B]" />
                       )}
                     </div>
-                    {renderFunnelIcon('companyName', Boolean(colFilters.companyName.trim()))}
+                    {renderFunnelIcon('companyName', Boolean(colFilters.companyName))}
                   </div>
+                </th>
+
+                {/* CONTACT: WHATSAPP / ALT NUMBER */}
+                <th className="py-3 px-3 font-semibold font-mono tracking-wider text-[#00C2FF] border-r border-[#1E3A5F]/40">
+                  <span>PHONE / WHATSAPP / ALT</span>
                 </th>
 
                 {/* CAMPAIGN */}
@@ -679,41 +884,41 @@ export const AllLeadsTable: React.FC<AllLeadsTableProps> = ({
                   </div>
                 </th>
 
-                {/* EMAIL 1 (Actual Sent Date) */}
+                {/* EMAIL 1 */}
                 <th className="py-3 px-3 font-semibold font-mono tracking-wider text-[#00C2FF] border-r border-[#1E3A5F]/40 text-center">
-                  <div className="flex items-center justify-between space-x-2">
+                  <div className="flex items-center justify-center space-x-1.5">
                     <span>EMAIL 1</span>
                     {renderFunnelIcon('email1', colFilters.email1 !== 'all')}
                   </div>
                 </th>
 
-                {/* EMAIL 2 (Actual Sent Date) */}
+                {/* EMAIL 2 */}
                 <th className="py-3 px-3 font-semibold font-mono tracking-wider text-[#00C2FF] border-r border-[#1E3A5F]/40 text-center">
-                  <div className="flex items-center justify-between space-x-2">
+                  <div className="flex items-center justify-center space-x-1.5">
                     <span>EMAIL 2</span>
                     {renderFunnelIcon('email2', colFilters.email2 !== 'all')}
                   </div>
                 </th>
 
-                {/* EMAIL 3 (Actual Sent Date) */}
+                {/* EMAIL 3 */}
                 <th className="py-3 px-3 font-semibold font-mono tracking-wider text-[#00C2FF] border-r border-[#1E3A5F]/40 text-center">
-                  <div className="flex items-center justify-between space-x-2">
+                  <div className="flex items-center justify-center space-x-1.5">
                     <span>EMAIL 3</span>
                     {renderFunnelIcon('email3', colFilters.email3 !== 'all')}
                   </div>
                 </th>
 
-                {/* NEW COL 1: WHATSAPP FOLLOW UP */}
-                <th className="py-3 px-3 font-semibold font-mono tracking-wider text-[#00E5A0] border-r border-[#1E3A5F]/40">
-                  <div className="flex items-center justify-between space-x-2">
+                {/* WHATSAPP FOLLOW UP */}
+                <th className="py-3 px-3 font-semibold font-mono tracking-wider text-[#00C2FF] border-r border-[#1E3A5F]/40">
+                  <div className="flex items-center justify-between space-x-1.5">
                     <span>WHATSAPP FOLLOW UP</span>
                     {renderFunnelIcon('whatsappFollowup', colFilters.whatsappFollowup !== 'all')}
                   </div>
                 </th>
 
-                {/* NEW COL 2: INTERESTED EMAIL FOLLOW UP */}
+                {/* INTERESTED EMAIL FOLLOW UP */}
                 <th className="py-3 px-3 font-semibold font-mono tracking-wider text-[#00C2FF] border-r border-[#1E3A5F]/40">
-                  <div className="flex items-center justify-between space-x-2">
+                  <div className="flex items-center justify-between space-x-1.5">
                     <span>INTERESTED EMAIL FOLLOW UP</span>
                     {renderFunnelIcon('interestedFollowup', colFilters.interestedFollowup !== 'all')}
                   </div>
@@ -773,10 +978,10 @@ export const AllLeadsTable: React.FC<AllLeadsTableProps> = ({
             <tbody className="divide-y divide-[#1E3A5F]/40 bg-[#0A0A0A]">
               {paginatedLeads.length === 0 ? (
                 <tr>
-                  <td colSpan={15} className="text-center py-16 text-[#7B7B7B]">
+                  <td colSpan={16} className="text-center py-20 text-[#7B7B7B]">
                     <div className="flex flex-col items-center justify-center space-y-2">
                       <Filter className="w-8 h-8 text-[#1E3A5F]" />
-                      <p>No leads found matching your filters.</p>
+                      <p>No leads found matching your criteria.</p>
                       {hasActiveFilters && (
                         <button
                           onClick={resetAllFilters}
@@ -791,10 +996,10 @@ export const AllLeadsTable: React.FC<AllLeadsTableProps> = ({
               ) : (
                 paginatedLeads.map((lead, idx) => {
                   const isSelected = selectedLeadIds.includes(lead.id);
-                  // Actual dates or fallback
-                  const email1Display = lead.email_1_date || (lead.email_1 && !['Sent', 'Opened', 'Replied'].includes(lead.email_1) ? lead.email_1 : '06/09/26');
-                  const email2Display = lead.email_2_date || (lead.email_2 && !['Sent', 'Opened', 'Replied'].includes(lead.email_2) ? lead.email_2 : (lead.is_interested ? '10/09/26' : '—'));
-                  const email3Display = lead.email_3_date || (lead.email_3 && !['Sent', 'Opened', 'Replied'].includes(lead.email_3) ? lead.email_3 : (lead.is_meeting_scheduled ? '14/09/26' : '—'));
+                  // Actual dates or fallback to empty dash (NO hardcoded placeholder)
+                  const email1Display = lead.email_1_date || (lead.email_1 && !['Sent', 'Opened', 'Replied', '-'].includes(lead.email_1) ? lead.email_1 : '');
+                  const email2Display = lead.email_2_date || (lead.email_2 && !['Sent', 'Opened', 'Replied', '-'].includes(lead.email_2) ? lead.email_2 : '');
+                  const email3Display = lead.email_3_date || (lead.email_3 && !['Sent', 'Opened', 'Replied', '-'].includes(lead.email_3) ? lead.email_3 : '');
 
                   return (
                     <tr
@@ -834,7 +1039,7 @@ export const AllLeadsTable: React.FC<AllLeadsTableProps> = ({
                         )}
                       </td>
 
-                      {/* City */}
+                      {/* City / Country */}
                       <td className="py-2.5 px-3 text-[#94A3B8] border-r border-[#1E3A5F]/30">
                         {lead.city || lead.country || (
                           <span className="text-[#64748B]">—</span>
@@ -846,6 +1051,69 @@ export const AllLeadsTable: React.FC<AllLeadsTableProps> = ({
                         {lead.company_name || (
                           <span className="text-[#64748B]">—</span>
                         )}
+                      </td>
+
+                      {/* WhatsApp / Alt Calling Number */}
+                      <td className="py-2.5 px-3 border-r border-[#1E3A5F]/30">
+                        <div className="flex flex-col space-y-1">
+                          {lead.whatsapp_number && (
+                            <div className="flex items-center space-x-1.5">
+                              <a
+                                href={`https://wa.me/${lead.whatsapp_number.replace(/[^0-9]/g, '')}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-[#00E5A0] hover:underline font-mono text-[11px] flex items-center space-x-1 font-semibold"
+                                title="Open WhatsApp Chat"
+                              >
+                                <Phone className="w-3 h-3 shrink-0" />
+                                <span>{lead.whatsapp_number}</span>
+                              </a>
+                              <button
+                                onClick={(e) => handleCopyWhatsApp(lead.id, lead.whatsapp_number!, e)}
+                                className="p-0.5 hover:bg-[#182234] rounded text-[#64748B] hover:text-white transition-colors"
+                                title="Copy WhatsApp Number"
+                              >
+                                {copiedId === lead.id ? (
+                                  <span className="text-[10px] text-[#00E5A0] font-sans font-bold flex items-center gap-0.5">
+                                    <Check className="w-3 h-3" />
+                                  </span>
+                                ) : (
+                                  <Copy className="w-3 h-3" />
+                                )}
+                              </button>
+                            </div>
+                          )}
+
+                          {lead.alternative_phone && (
+                            <div className="flex items-center space-x-1.5">
+                              <a
+                                href={`tel:${lead.alternative_phone.replace(/[^0-9+]/g, '')}`}
+                                className="text-[#00C2FF] hover:underline font-mono text-[11px] flex items-center space-x-1"
+                                title="Call Alternative Direct Number"
+                              >
+                                <PhoneCall className="w-3 h-3 shrink-0" />
+                                <span>Alt: {lead.alternative_phone}</span>
+                              </a>
+                              <button
+                                onClick={(e) => handleCopyAltPhone(lead.id, lead.alternative_phone!, e)}
+                                className="p-0.5 hover:bg-[#182234] rounded text-[#64748B] hover:text-white transition-colors"
+                                title="Copy Alternative Number"
+                              >
+                                {copiedAltId === lead.id ? (
+                                  <span className="text-[10px] text-[#00C2FF] font-sans font-bold flex items-center gap-0.5">
+                                    <Check className="w-3 h-3" />
+                                  </span>
+                                ) : (
+                                  <Copy className="w-3 h-3" />
+                                )}
+                              </button>
+                            </div>
+                          )}
+
+                          {!lead.whatsapp_number && !lead.alternative_phone && (
+                            <span className="text-[#64748B]">—</span>
+                          )}
+                        </div>
                       </td>
 
                       {/* Campaign */}
@@ -860,9 +1128,9 @@ export const AllLeadsTable: React.FC<AllLeadsTableProps> = ({
                       </td>
 
                       {/* EMAIL 1 (Actual Date) */}
-                      <td className="py-2.5 px-3 border-r border-[#1E3A5F]/30 text-center font-mono text-[11px] text-white">
-                        {email1Display !== '—' ? (
-                          <span className="px-2 py-0.5 rounded bg-[#111827] border border-[#1E3A5F] text-[#00C2FF]">
+                      <td className="py-2.5 px-3 border-r border-[#1E3A5F]/30 text-center font-mono text-[11px]">
+                        {email1Display ? (
+                          <span className="px-2 py-0.5 rounded bg-[#111827] border border-[#1E3A5F] text-[#00C2FF] font-bold">
                             {email1Display}
                           </span>
                         ) : (
@@ -871,9 +1139,9 @@ export const AllLeadsTable: React.FC<AllLeadsTableProps> = ({
                       </td>
 
                       {/* EMAIL 2 (Actual Date) */}
-                      <td className="py-2.5 px-3 border-r border-[#1E3A5F]/30 text-center font-mono text-[11px] text-white">
-                        {email2Display !== '—' ? (
-                          <span className="px-2 py-0.5 rounded bg-[#111827] border border-[#1E3A5F] text-[#00C2FF]">
+                      <td className="py-2.5 px-3 border-r border-[#1E3A5F]/30 text-center font-mono text-[11px]">
+                        {email2Display ? (
+                          <span className="px-2 py-0.5 rounded bg-[#111827] border border-[#1E3A5F] text-[#00C2FF] font-bold">
                             {email2Display}
                           </span>
                         ) : (
@@ -882,9 +1150,9 @@ export const AllLeadsTable: React.FC<AllLeadsTableProps> = ({
                       </td>
 
                       {/* EMAIL 3 (Actual Date) */}
-                      <td className="py-2.5 px-3 border-r border-[#1E3A5F]/30 text-center font-mono text-[11px] text-white">
-                        {email3Display !== '—' ? (
-                          <span className="px-2 py-0.5 rounded bg-[#111827] border border-[#1E3A5F] text-[#00C2FF]">
+                      <td className="py-2.5 px-3 border-r border-[#1E3A5F]/30 text-center font-mono text-[11px]">
+                        {email3Display ? (
+                          <span className="px-2 py-0.5 rounded bg-[#111827] border border-[#1E3A5F] text-[#00C2FF] font-bold">
                             {email3Display}
                           </span>
                         ) : (
@@ -921,97 +1189,74 @@ export const AllLeadsTable: React.FC<AllLeadsTableProps> = ({
                         )}
                       </td>
 
-                      {/* PIPELINE STAGE */}
+                      {/* PIPELINE STAGE & PENDING */}
                       <td className="py-2.5 px-3 border-r border-[#1E3A5F]/30">
-                        <div className="flex flex-wrap items-center gap-1">
-                          {lead.is_meeting_done ? (
-                            <span className="px-2 py-0.5 rounded text-[10px] font-mono font-semibold bg-[#00E5A0]/15 text-[#00E5A0] border border-[#00E5A0]/40">
+                        <div className="flex flex-col space-y-1 items-start">
+                          {lead.priority === 'DNC' ? (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-rose-950 text-rose-300 border border-rose-800">
+                              DNC (Do Not Contact)
+                            </span>
+                          ) : lead.meeting_count_type === 'YES' ? (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#00E5A0]/20 text-[#00E5A0] border border-[#00E5A0]/40">
+                              Meeting Count = YES
+                            </span>
+                          ) : lead.meeting_count_type === 'NO' ? (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-neutral-800 text-neutral-400 border border-neutral-700">
+                              Meeting Count = NO
+                            </span>
+                          ) : lead.is_meeting_done ? (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#00C2FF]/20 text-[#00C2FF] border border-[#00C2FF]/40">
                               Meeting Done
                             </span>
                           ) : lead.is_meeting_scheduled ? (
-                            <span className="px-2 py-0.5 rounded text-[10px] font-mono font-semibold bg-[#00C2FF]/15 text-[#00C2FF] border border-[#00C2FF]/40">
-                              Meeting Sched
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 flex items-center space-x-1">
+                              <Calendar className="w-3 h-3" />
+                              <span>{formatTo12Hour(lead.meeting_time)}</span>
                             </span>
                           ) : lead.is_interested ? (
-                            <span className="px-2 py-0.5 rounded text-[10px] font-mono font-semibold bg-amber-500/15 text-amber-300 border border-amber-500/40">
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/20 text-amber-300 border border-amber-500/40">
                               Interested
                             </span>
                           ) : (
-                            <span className="px-2 py-0.5 rounded text-[10px] font-mono text-[#7B7B7B] bg-[#111827]">
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-[#1E3A5F]/30 text-[#94A3B8]">
                               Outreach
                             </span>
                           )}
 
-                          {lead.meeting_count_type === 'YES' && (
-                            <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-[#00E5A0] text-black">
-                              COUNT YES
-                            </span>
-                          )}
-                          {lead.meeting_count_type === 'NO' && (
-                            <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-[#F97316] text-black">
-                              COUNT NO
-                            </span>
-                          )}
-                          {/* Rule: Count NO is NEVER pending. Show Pending "YES" */}
+                          {/* Explicit Pending "YES" badge */}
                           {lead.is_pending && lead.meeting_count_type !== 'NO' && (
-                            <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-[#F97316]/20 text-[#F97316] border border-[#F97316]/40">
-                              Pending "YES"
+                            <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full bg-[#F97316]/20 text-[#F97316] border border-[#F97316]/40 text-[9px] font-mono font-bold tracking-tight">
+                              <Clock className="w-2.5 h-2.5" />
+                              <span>Pending "YES"</span>
                             </span>
                           )}
                         </div>
                       </td>
 
                       {/* DATE ADDED */}
-                      <td className="py-2.5 px-3 font-mono text-[#94A3B8] text-xs border-r border-[#1E3A5F]/30">
-                        {lead.created_at ? lead.created_at.split('T')[0] : '—'}
+                      <td className="py-2.5 px-3 text-[#94A3B8] font-mono text-xs border-r border-[#1E3A5F]/30">
+                        {lead.created_at ? formatDateFormatted(lead.created_at) : '—'}
                       </td>
 
                       {/* ACTIONS */}
                       <td className="py-2.5 px-3 text-right">
                         <div className="flex items-center justify-end space-x-1.5">
-                          {/* WhatsApp Action & Copy Button */}
-                          {lead.whatsapp_number && (
-                            <div className="flex items-center space-x-0.5 bg-[#111827] border border-[#1E3A5F] rounded p-0.5">
-                              <button
-                                onClick={() => {
-                                  const cleanNum = lead.whatsapp_number!.replace(/[^0-9]/g, '');
-                                  window.open(`https://wa.me/${cleanNum}`, '_blank');
-                                  recordWhatsAppSent(lead.id);
-                                }}
-                                className="p-1 text-[#00E5A0] hover:bg-[#00E5A0]/20 rounded transition-colors"
-                                title={`WhatsApp: ${lead.whatsapp_number}`}
-                              >
-                                <Phone className="w-3.5 h-3.5" />
-                              </button>
-                              <button
-                                onClick={(e) => handleCopyWhatsApp(lead.id, lead.whatsapp_number!, e)}
-                                className="p-1 text-[#94A3B8] hover:text-white rounded transition-colors"
-                                title="Copy WhatsApp Number"
-                              >
-                                {copiedId === lead.id ? (
-                                  <Check className="w-3 h-3 text-[#00E5A0]" />
-                                ) : (
-                                  <Copy className="w-3 h-3" />
-                                )}
-                              </button>
-                            </div>
-                          )}
-
-                          {/* Quick Log Call */}
-                          <button
-                            onClick={() => recordCallDone(lead.id)}
-                            title="Log Call Done"
-                            className="p-1 text-[#7B7B7B] hover:text-[#00C2FF] rounded hover:bg-[#182234]"
-                          >
-                            <PhoneCall className="w-3.5 h-3.5" />
-                          </button>
-
-                          {/* Details Button */}
                           <button
                             onClick={() => onSelectLead(lead.id)}
-                            className="px-2 py-0.5 text-[11px] text-[#00C2FF] bg-[#111827] hover:bg-[#182234] border border-[#00C2FF]/30 rounded transition-colors"
+                            className="px-2.5 py-1 bg-[#111827] hover:bg-[#182234] text-[#00C2FF] border border-[#00C2FF]/30 hover:border-[#00C2FF] rounded text-[11px] font-medium transition-all shadow-sm"
                           >
                             Details
+                          </button>
+                          <button
+                            onClick={() => {
+                              if (window.confirm(`Are you sure you want to permanently delete lead "${lead.email}" (${lead.first_name} ${lead.last_name})?`)) {
+                                deleteLead(lead.id);
+                              }
+                            }}
+                            className="p-1 text-red-400 hover:text-red-300 hover:bg-red-950/40 rounded transition-colors"
+                            title="Delete Lead"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         </div>
                       </td>
@@ -1023,30 +1268,14 @@ export const AllLeadsTable: React.FC<AllLeadsTableProps> = ({
           </table>
         </div>
 
-        {/* Dynamic Column Filter Popover Overlay */}
+        {/* In-Header Dropdown Popover Filter Menu */}
         {activeFilterCol && (
           <div
             ref={popoverRef}
-            className="absolute top-12 z-50 w-72 bg-[#111827] border border-[#00C2FF]/50 rounded-xl shadow-2xl p-3.5 text-xs text-white animate-in fade-in zoom-in-95"
-            style={{
-              left:
-                activeFilterCol === 'email' ? '30px' :
-                activeFilterCol === 'firstName' ? '180px' :
-                activeFilterCol === 'city' ? '300px' :
-                activeFilterCol === 'companyName' ? '420px' :
-                activeFilterCol === 'campaign' ? '540px' :
-                activeFilterCol === 'email1' ? '600px' :
-                activeFilterCol === 'email2' ? '660px' :
-                activeFilterCol === 'email3' ? '720px' :
-                activeFilterCol === 'whatsappFollowup' ? '780px' :
-                activeFilterCol === 'interestedFollowup' ? '860px' :
-                activeFilterCol === 'account' ? '920px' :
-                activeFilterCol === 'pipelineStage' ? '980px' : '1040px',
-              maxWidth: 'calc(100vw - 340px)'
-            }}
+            className="absolute z-50 top-12 left-10 bg-[#111827] border border-[#00C2FF]/50 rounded-xl shadow-2xl p-4 w-72 text-xs animate-in fade-in zoom-in-95 duration-150"
           >
-            <div className="flex items-center justify-between pb-2 mb-2.5 border-b border-[#1E3A5F]">
-              <span className="font-semibold text-[#00C2FF] uppercase tracking-wider font-mono">
+            <div className="flex items-center justify-between pb-2 border-b border-[#1E3A5F]/60 mb-3">
+              <span className="font-bold text-white uppercase text-[11px] tracking-wider text-[#00C2FF]">
                 Filter: {activeFilterCol}
               </span>
               <button
@@ -1187,7 +1416,7 @@ export const AllLeadsTable: React.FC<AllLeadsTableProps> = ({
             {/* WhatsApp Follow Up Filter */}
             {activeFilterCol === 'whatsappFollowup' && (
               <div className="space-y-2">
-                <label className="text-[#94A3B8] text-[11px]">WhatsApp Follow Up Stage:</label>
+                <label className="text-[#94A3B8] text-[11px]">WhatsApp Follow Up:</label>
                 <select
                   value={colFilters.whatsappFollowup}
                   onChange={(e) => updateFilter('whatsappFollowup', e.target.value)}
@@ -1237,7 +1466,7 @@ export const AllLeadsTable: React.FC<AllLeadsTableProps> = ({
               </div>
             )}
 
-            {/* Pipeline Stage Filter */}
+            {/* Pipeline Stage Filter (Includes DNC) */}
             {activeFilterCol === 'pipelineStage' && (
               <div className="space-y-2">
                 <label className="text-[#94A3B8] text-[11px]">Select Pipeline Milestone:</label>
@@ -1254,6 +1483,7 @@ export const AllLeadsTable: React.FC<AllLeadsTableProps> = ({
                   <option value="count_yes">Stage 4: Meeting Count = YES</option>
                   <option value="count_no">Stage 4b: Meeting Count = NO</option>
                   <option value="pending">Pending "YES"</option>
+                  <option value="dnc">DNC (Do Not Contact / Excluded)</option>
                 </select>
               </div>
             )}
@@ -1261,39 +1491,44 @@ export const AllLeadsTable: React.FC<AllLeadsTableProps> = ({
             {/* Date Added Filter */}
             {activeFilterCol === 'dateAdded' && (
               <div className="space-y-2">
-                <label className="text-[#94A3B8] text-[11px]">Date Range:</label>
+                <label className="text-[#94A3B8] text-[11px]">Added Timeframe:</label>
                 <select
                   value={colFilters.dateAdded}
                   onChange={(e) => updateFilter('dateAdded', e.target.value)}
                   className="w-full bg-[#0A0A0A] border border-[#1E3A5F] rounded-lg px-2.5 py-1.5 text-xs text-white focus:border-[#00C2FF] focus:outline-none"
                 >
-                  <option value="all">All Time</option>
-                  <option value="today">Today</option>
-                  <option value="last_7_days">Last 7 Days</option>
-                  <option value="last_30_days">Last 30 Days</option>
-                  <option value="this_month">This Month</option>
+                  <option value="all">Anytime</option>
+                  <option value="today">Added Today</option>
+                  <option value="week">Added in Last 7 Days</option>
+                  <option value="month">Added in Last 30 Days</option>
                 </select>
               </div>
             )}
 
-            {/* Popover Footer Buttons */}
-            <div className="flex items-center justify-between pt-3 mt-3 border-t border-[#1E3A5F]/70">
+            <div className="flex items-center justify-between pt-3 mt-3 border-t border-[#1E3A5F]/60 text-[11px]">
               <button
                 onClick={() => {
-                  const key = activeFilterCol as keyof ColumnFilters;
-                  if (key === 'campaign' || key === 'email1' || key === 'email2' || key === 'email3' || key === 'whatsappFollowup' || key === 'interestedFollowup' || key === 'account' || key === 'pipelineStage' || key === 'dateAdded') {
-                    updateFilter(key, 'all');
-                  } else {
-                    updateFilter(key, '');
-                  }
+                  if (activeFilterCol === 'email') updateFilter('email', '');
+                  if (activeFilterCol === 'firstName') updateFilter('firstName', '');
+                  if (activeFilterCol === 'city') updateFilter('city', '');
+                  if (activeFilterCol === 'companyName') updateFilter('companyName', '');
+                  if (activeFilterCol === 'campaign') updateFilter('campaign', 'all');
+                  if (activeFilterCol === 'email1') updateFilter('email1', 'all');
+                  if (activeFilterCol === 'email2') updateFilter('email2', 'all');
+                  if (activeFilterCol === 'email3') updateFilter('email3', 'all');
+                  if (activeFilterCol === 'whatsappFollowup') updateFilter('whatsappFollowup', 'all');
+                  if (activeFilterCol === 'interestedFollowup') updateFilter('interestedFollowup', 'all');
+                  if (activeFilterCol === 'account') updateFilter('account', 'all');
+                  if (activeFilterCol === 'pipelineStage') updateFilter('pipelineStage', 'all');
+                  if (activeFilterCol === 'dateAdded') updateFilter('dateAdded', 'all');
                 }}
-                className="text-[11px] text-[#F97316] hover:text-white"
+                className="text-[#7B7B7B] hover:text-[#00C2FF]"
               >
-                Reset Column
+                Clear this filter
               </button>
               <button
                 onClick={() => setActiveFilterCol(null)}
-                className="px-3 py-1 bg-[#00C2FF] hover:bg-[#00C2FF]/80 text-black font-semibold text-xs rounded transition-colors"
+                className="px-2.5 py-1 bg-[#00C2FF] text-black font-semibold rounded"
               >
                 Done
               </button>
@@ -1301,36 +1536,120 @@ export const AllLeadsTable: React.FC<AllLeadsTableProps> = ({
           </div>
         )}
 
-        {/* Pagination Bar */}
-        <div className="p-3 bg-[#0A0A0A] border-t border-[#1E3A5F] flex items-center justify-between text-xs text-[#94A3B8]">
-          <div className="flex items-center space-x-2">
-            <span>
-              Showing {(currentPage - 1) * pageSize + 1} to{' '}
-              {Math.min(currentPage * pageSize, sortedLeads.length)} of {sortedLeads.length} leads
-            </span>
-          </div>
+        {/* Pagination Footer */}
+        <div className="p-3 bg-[#0A0A0A] border-t border-[#1E3A5F] flex flex-wrap items-center justify-between gap-2 text-xs">
+          <span className="text-[#94A3B8]">
+            Showing <strong className="text-white">{(currentPage - 1) * pageSize + 1}</strong> to{' '}
+            <strong className="text-white">
+              {Math.min(currentPage * pageSize, sortedLeads.length)}
+            </strong>{' '}
+            of <strong className="text-white">{sortedLeads.length}</strong> leads
+          </span>
 
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-1.5">
             <button
               onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
               disabled={currentPage === 1}
-              className="p-1 rounded bg-[#111827] border border-[#1E3A5F] text-white disabled:opacity-40 hover:bg-[#182234]"
+              className="p-1 rounded bg-[#111827] border border-[#1E3A5F] text-[#94A3B8] hover:text-white disabled:opacity-40"
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
-            <span className="font-mono text-white">
+            <span className="px-2 text-white font-mono">
               {currentPage} / {totalPages}
             </span>
             <button
               onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
               disabled={currentPage === totalPages}
-              className="p-1 rounded bg-[#111827] border border-[#1E3A5F] text-white disabled:opacity-40 hover:bg-[#182234]"
+              className="p-1 rounded bg-[#111827] border border-[#1E3A5F] text-[#94A3B8] hover:text-white disabled:opacity-40"
             >
               <ChevronRight className="w-4 h-4" />
             </button>
           </div>
         </div>
       </div>
+
+      {/* 5. MODALS */}
+      {/* Create New List Modal */}
+      {isNewListModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-[#0A0A0A] border border-[#1E3A5F] rounded-xl w-full max-w-md shadow-2xl p-5 space-y-4">
+            <div className="flex items-center justify-between border-b border-[#1E3A5F] pb-3">
+              <div className="flex items-center space-x-2">
+                <FolderPlus className="w-4 h-4 text-[#00C2FF]" />
+                <h3 className="text-sm font-bold text-white">Create New Lead List</h3>
+              </div>
+              <button
+                onClick={() => setIsNewListModalOpen(false)}
+                className="text-[#7B7B7B] hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateNewList} className="space-y-3 text-xs">
+              <div>
+                <label className="text-[11px] font-semibold text-white block mb-1">
+                  List Name *
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. UK Tech Founders, September Followups"
+                  value={newListName}
+                  onChange={(e) => setNewListName(e.target.value)}
+                  className="w-full bg-[#111827] border border-[#1E3A5F] rounded-lg p-2.5 text-white focus:border-[#00C2FF] focus:outline-none"
+                  autoFocus
+                />
+              </div>
+
+              <div>
+                <label className="text-[11px] font-semibold text-[#94A3B8] block mb-1">
+                  Description (Optional)
+                </label>
+                <textarea
+                  rows={2}
+                  placeholder="Targeting notes or campaign context..."
+                  value={newListDesc}
+                  onChange={(e) => setNewListDesc(e.target.value)}
+                  className="w-full bg-[#111827] border border-[#1E3A5F] rounded-lg p-2 text-white focus:border-[#00C2FF] focus:outline-none"
+                />
+              </div>
+
+              <div className="flex justify-end space-x-2 pt-2 border-t border-[#1E3A5F]">
+                <button
+                  type="button"
+                  onClick={() => setIsNewListModalOpen(false)}
+                  className="px-3 py-1.5 text-[#7B7B7B] hover:text-white"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={!newListName.trim()}
+                  className="px-4 py-1.5 bg-[#00C2FF] text-black font-bold rounded-lg hover:bg-[#00C2FF]/90 transition-all disabled:opacity-40"
+                >
+                  Create List
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk Edit Modal */}
+      <BulkEditModal
+        isOpen={isBulkEditOpen}
+        selectedLeadIds={selectedLeadIds}
+        onClose={() => setIsBulkEditOpen(false)}
+        onSuccess={() => setSelectedLeadIds([])}
+      />
+
+      {/* Local Bulk Upload Modal (if triggered from within All Leads) */}
+      <LeadImportModal
+        isOpen={isLocalImportOpen}
+        onClose={() => setIsLocalImportOpen(false)}
+        defaultListId={activeListTab !== 'all' ? activeListTab : undefined}
+      />
     </div>
   );
 };

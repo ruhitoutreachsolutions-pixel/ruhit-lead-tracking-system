@@ -63,6 +63,8 @@ const AppContent: React.FC = () => {
                 searchQuery={searchQuery}
                 onSelectLead={(id) => setSelectedLeadId(id)}
                 onOpenScheduleMeeting={handleOpenScheduleMeeting}
+                onOpenAddLead={() => setIsAddLeadOpen(true)}
+                onOpenBulkUpload={() => setIsImportOpen(true)}
               />
             )}
 
