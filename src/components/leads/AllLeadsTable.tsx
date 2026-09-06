@@ -1110,8 +1110,26 @@ export const AllLeadsTable: React.FC<AllLeadsTableProps> = ({
                             </div>
                           )}
 
+                          {!lead.alternative_phone && lead.whatsapp_number && (
+                            <button
+                              onClick={() => onSelectLead(lead.id)}
+                              className="text-[10px] text-[#64748B] hover:text-[#00C2FF] flex items-center gap-0.5 text-left transition-colors pt-0.5"
+                              title="Click to add alternative phone for direct calling"
+                            >
+                              <Plus className="w-2.5 h-2.5 text-[#00C2FF]" />
+                              <span>Alt Phone</span>
+                            </button>
+                          )}
+
                           {!lead.whatsapp_number && !lead.alternative_phone && (
-                            <span className="text-[#64748B]">—</span>
+                            <button
+                              onClick={() => onSelectLead(lead.id)}
+                              className="text-[#64748B] hover:text-[#00C2FF] text-[11px] flex items-center space-x-1"
+                              title="Click to add phone or WhatsApp"
+                            >
+                              <span>—</span>
+                              <span className="text-[10px] text-[#00C2FF]">+ Add</span>
+                            </button>
                           )}
                         </div>
                       </td>

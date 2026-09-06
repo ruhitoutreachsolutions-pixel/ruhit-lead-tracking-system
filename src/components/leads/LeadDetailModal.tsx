@@ -387,17 +387,18 @@ export const LeadDetailModal: React.FC<LeadDetailModalProps> = ({
               </div>
             )}
 
-            {alternativePhone && (
+            {alternativePhone ? (
               <div className="flex items-center space-x-1">
                 <a
                   href={`tel:${alternativePhone.replace(/[^0-9+]/g, '')}`}
-                  className="flex items-center space-x-1.5 px-3 py-1 bg-[#00C2FF]/15 hover:bg-[#00C2FF]/25 text-[#00C2FF] border border-[#00C2FF]/40 rounded-lg transition-all font-mono"
+                  className="flex items-center space-x-1.5 px-3 py-1 bg-[#00C2FF]/15 hover:bg-[#00C2FF]/25 text-[#00C2FF] border border-[#00C2FF]/40 rounded-lg transition-all font-mono text-xs font-semibold"
                   title="Call Alternative Direct Number"
                 >
                   <PhoneCall className="w-3.5 h-3.5" />
                   <span>Call Alt ({alternativePhone})</span>
                 </a>
                 <button
+                  type="button"
                   onClick={() => {
                     navigator.clipboard.writeText(alternativePhone);
                     setIsCopiedAlt(true);
@@ -409,10 +410,26 @@ export const LeadDetailModal: React.FC<LeadDetailModalProps> = ({
                   {isCopiedAlt ? <Check className="w-3.5 h-3.5 text-[#00C2FF]" /> : <Copy className="w-3.5 h-3.5 text-[#00C2FF]" />}
                 </button>
               </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  const input = document.getElementById('alt-phone-input') as HTMLInputElement | null;
+                  if (input) {
+                    input.focus();
+                    input.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                  }
+                }}
+                className="flex items-center space-x-1 px-2.5 py-1 bg-[#111827] hover:bg-[#1E3A5F]/40 text-[#00C2FF] border border-dashed border-[#00C2FF]/50 rounded-lg transition-all text-xs"
+                title="Add Alternative Phone Number for Calling"
+              >
+                <Plus className="w-3 h-3" />
+                <span>+ Alt Calling Number</span>
+              </button>
             )}
 
             {!whatsappNumber && !alternativePhone && (
-              <span className="text-[#7B7B7B] italic text-[11px]">No Phone / WhatsApp</span>
+              <span className="text-[#7B7B7B] italic text-[11px]">(No phone on file)</span>
             )}
 
             <button
@@ -633,6 +650,69 @@ export const LeadDetailModal: React.FC<LeadDetailModalProps> = ({
                       </button>
                     )}
                   </div>
+                </div>
+
+                {/* Alternative Number (Calling) */}
+                <div>
+                  <label className="text-[11px] text-[#00C2FF] font-semibold block mb-1 flex items-center justify-between">
+                    <span className="flex items-center gap-1">
+                      <PhoneCall className="w-3 h-3 text-[#00C2FF]" />
+                      <span>Alternative Number (Calling)</span>
+                    </span>
+                    <span className="text-[10px] text-[#64748B]">Non-WhatsApp</span>
+                  </label>
+                  <div className="flex items-center space-x-1">
+                    <input
+                      id="alt-phone-input"
+                      type="text"
+                      value={alternativePhone}
+                      onChange={(e) => setAlternativePhone(e.target.value)}
+                      placeholder="+442079460123"
+                      className="w-full bg-[#0A0A0A] border border-[#00C2FF]/50 focus:border-[#00C2FF] rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none font-mono"
+                    />
+                    {alternativePhone && (
+                      <>
+                        <a
+                          href={`tel:${alternativePhone.replace(/[^0-9+]/g, '')}`}
+                          className="p-1.5 bg-[#0A0A0A] border border-[#1E3A5F] hover:border-[#00C2FF] rounded text-[#00C2FF] hover:text-white transition-colors"
+                          title="Call Alternative Direct Number"
+                        >
+                          <PhoneCall className="w-3.5 h-3.5" />
+                        </a>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            navigator.clipboard.writeText(alternativePhone);
+                            setIsCopiedAlt(true);
+                            setTimeout(() => setIsCopiedAlt(false), 2000);
+                          }}
+                          className="p-1.5 bg-[#0A0A0A] border border-[#1E3A5F] rounded text-[#94A3B8] hover:text-white"
+                          title="Copy Alternative Number"
+                        >
+                          {isCopiedAlt ? <Check className="w-3.5 h-3.5 text-[#00E5A0]" /> : <Copy className="w-3.5 h-3.5" />}
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {/* Target List / Segment */}
+                <div>
+                  <label className="text-[11px] text-[#94A3B8] font-semibold block mb-1">
+                    Target List / Segment
+                  </label>
+                  <select
+                    value={selectedListId}
+                    onChange={(e) => setSelectedListId(e.target.value)}
+                    className="w-full bg-[#0A0A0A] text-white border border-[#1E3A5F] rounded-lg px-2.5 py-1.5 text-xs focus:border-[#00C2FF] focus:outline-none"
+                  >
+                    <option value="">No List Assigned</option>
+                    {lists.map((l) => (
+                      <option key={l.id} value={l.id}>
+                        {l.name}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 {/* Country */}
