@@ -60,6 +60,9 @@ export interface Lead {
   
   campaign_id?: string;
   campaign_name?: string;
+  email_1?: string;
+  email_2?: string;
+  email_3?: string;
   brand_id?: string;
   brand_name?: string;
   account_id?: string;
