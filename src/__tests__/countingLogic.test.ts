@@ -2,7 +2,8 @@ import { describe, it, expect } from 'vitest';
 import {
   calculateLifetimeMetrics,
   calculateDateScopedMetrics,
-  getDayBounds
+  getDayBounds,
+  getRunningMonthBounds
 } from '../lib/countingLogic';
 import { Lead } from '../types';
 
@@ -217,5 +218,67 @@ describe('Cumulative Milestone Counting Logic (Requirements 8-12 & 82)', () => {
     const lifetime = calculateLifetimeMetrics(leads);
     expect(lifetime.totalInterested).toBe(1);
     expect(lifetime.totalMeetingScheduled).toBe(1);
+  });
+
+  it('Running Month Isolation: Previous month leads are strictly excluded from current running month counts', () => {
+    // Current date: September 2026
+    const septDate = new Date('2026-09-06T12:00:00.000Z');
+    const bounds = getRunningMonthBounds(septDate);
+
+    const leads: Lead[] = [
+      // Past month lead (August 2026)
+      {
+        id: 'lead-august',
+        email: 'august@example.com',
+        first_name: 'August',
+        last_name: 'Lead',
+        company_name: 'Old Co',
+        priority: 'Medium',
+        is_interested: true,
+        interested_at: '2026-08-15T10:00:00.000Z',
+        is_meeting_scheduled: true,
+        meeting_scheduled_at: '2026-08-18T10:00:00.000Z',
+        is_meeting_done: true,
+        meeting_done_at: '2026-08-20T10:00:00.000Z',
+        meeting_count_type: 'YES',
+        meeting_count_at: '2026-08-20T10:00:00.000Z',
+        is_pending: false,
+        created_at: '2026-08-15T10:00:00.000Z',
+        updated_at: '2026-08-20T10:00:00.000Z',
+      },
+      // Current month lead (September 2026)
+      {
+        id: 'lead-september',
+        email: 'september@example.com',
+        first_name: 'September',
+        last_name: 'Lead',
+        company_name: 'Fresh Co',
+        priority: 'Medium',
+        is_interested: true,
+        interested_at: '2026-09-02T10:00:00.000Z',
+        is_meeting_scheduled: true,
+        meeting_scheduled_at: '2026-09-04T10:00:00.000Z',
+        is_meeting_done: false,
+        meeting_count_type: null,
+        is_pending: false,
+        created_at: '2026-09-02T10:00:00.000Z',
+        updated_at: '2026-09-04T10:00:00.000Z',
+      },
+    ];
+
+    const septMetrics = calculateDateScopedMetrics(leads, [], bounds.start, bounds.end);
+
+    // August lead must not be counted in September running month
+    expect(septMetrics.totalInterested).toBe(1); // Only September lead
+    expect(septMetrics.totalMeetingScheduled).toBe(1); // Only September lead
+    expect(septMetrics.totalMeetingDone).toBe(0); // August lead done is ignored
+    expect(septMetrics.totalMeetingCount).toBe(0); // August lead YES is ignored
+
+    // But in lifetime metrics, all leads are counted
+    const lifetimeMetrics = calculateLifetimeMetrics(leads);
+    expect(lifetimeMetrics.totalInterested).toBe(2);
+    expect(lifetimeMetrics.totalMeetingScheduled).toBe(2);
+    expect(lifetimeMetrics.totalMeetingDone).toBe(1);
+    expect(lifetimeMetrics.totalMeetingCount).toBe(1);
   });
 });

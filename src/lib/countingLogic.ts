@@ -22,6 +22,18 @@ export function getDayBounds(date: Date = new Date()): { start: Date; end: Date 
 }
 
 /**
+ * Calculates start and end of the current running calendar month
+ */
+export function getRunningMonthBounds(date: Date = new Date()): { start: Date; end: Date; monthName: string; year: number } {
+  const year = date.getFullYear();
+  const month = date.getMonth();
+  const start = new Date(year, month, 1, 0, 0, 0, 0);
+  const end = new Date(year, month + 1, 0, 23, 59, 59, 999);
+  const monthName = date.toLocaleString('default', { month: 'long' });
+  return { start, end, monthName, year };
+}
+
+/**
  * Calculates Lifetime metrics across all leads and activities.
  * Strictly adheres to Rules 8-12:
  * - Cumulative: earlier milestones remain counted.
@@ -111,20 +123,24 @@ export function calculateDateScopedMetrics(
   let pendingYes = 0;
 
   for (const lead of leads) {
-    // Check interested timestamp
-    if (isTimestampInRange(lead.interested_at, startDate, endDate)) {
+    // Check interested timestamp (fallback to updated_at/created_at if milestone is marked)
+    const interestedTimestamp = lead.interested_at || (lead.is_interested ? (lead.updated_at || lead.created_at) : null);
+    if (isTimestampInRange(interestedTimestamp, startDate, endDate)) {
       totalInterested++;
     }
     // Check meeting scheduled timestamp
-    if (isTimestampInRange(lead.meeting_scheduled_at, startDate, endDate)) {
+    const scheduledTimestamp = lead.meeting_scheduled_at || (lead.is_meeting_scheduled && lead.meeting_date ? `${lead.meeting_date}T00:00:00` : (lead.is_meeting_scheduled ? (lead.updated_at || lead.created_at) : null));
+    if (isTimestampInRange(scheduledTimestamp, startDate, endDate)) {
       totalMeetingScheduled++;
     }
     // Check meeting done timestamp
-    if (isTimestampInRange(lead.meeting_done_at, startDate, endDate)) {
+    const doneTimestamp = lead.meeting_done_at || ((lead.is_meeting_done || lead.meeting_count_type) ? (lead.meeting_date ? `${lead.meeting_date}T00:00:00` : lead.updated_at || lead.created_at) : null);
+    if (isTimestampInRange(doneTimestamp, startDate, endDate)) {
       totalMeetingDone++;
     }
     // Check meeting count timestamp
-    if (isTimestampInRange(lead.meeting_count_at, startDate, endDate)) {
+    const countTimestamp = lead.meeting_count_at || (lead.meeting_count_type ? (lead.meeting_date ? `${lead.meeting_date}T00:00:00` : lead.updated_at || lead.created_at) : null);
+    if (isTimestampInRange(countTimestamp, startDate, endDate)) {
       if (lead.meeting_count_type === 'YES') {
         meetingCountYes++;
         totalMeetingCount++;
@@ -133,7 +149,8 @@ export function calculateDateScopedMetrics(
       }
     }
     // Check pending timestamp
-    if (isTimestampInRange(lead.pending_at, startDate, endDate) && lead.is_pending) {
+    const pendingTimestamp = lead.pending_at || (lead.is_pending ? (lead.updated_at || lead.created_at) : null);
+    if (isTimestampInRange(pendingTimestamp, startDate, endDate) && lead.is_pending) {
       pendingYes++;
     }
   }
