@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   X,
   User,
@@ -17,11 +17,15 @@ import {
   ExternalLink,
   Tag,
   History,
-  PhoneCall
+  PhoneCall,
+  Copy,
+  Check,
+  Save
 } from 'lucide-react';
 import { useLeads } from '../../context/LeadContext';
 import { useAuth } from '../../context/AuthContext';
-import { Lead } from '../../types';
+import { Lead, Priority, WhatsAppFollowUpStage, InterestedEmailFollowUpStage } from '../../types';
+import { formatTo12Hour } from '../../lib/formatTime';
 
 interface LeadDetailModalProps {
   leadId: string | null;
@@ -40,6 +44,9 @@ export const LeadDetailModal: React.FC<LeadDetailModalProps> = ({
     leads,
     activities,
     reminders,
+    campaigns,
+    brands,
+    accounts,
     updateLead,
     markInterested,
     markMeetingDone,
@@ -51,32 +58,201 @@ export const LeadDetailModal: React.FC<LeadDetailModalProps> = ({
     addReminder,
     completeReminder,
   } = useLeads();
-  const { currentUser } = useAuth();
+  const { allUsers, currentUser } = useAuth();
 
+  const lead = leads.find((l) => l.id === leadId);
+
+  // Editable Form State
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [email, setEmail] = useState('');
+  const [companyName, setCompanyName] = useState('');
+  const [whatsappNumber, setWhatsappNumber] = useState('');
+  const [country, setCountry] = useState('');
+  const [city, setCity] = useState('');
+  const [priority, setPriority] = useState<Priority>('Medium');
+  const [campaignId, setCampaignId] = useState('');
+  const [brandId, setBrandId] = useState('');
+  const [accountId, setAccountId] = useState('');
+  const [assignedUserId, setAssignedUserId] = useState('');
+  const [email1Date, setEmail1Date] = useState('');
+  const [email2Date, setEmail2Date] = useState('');
+  const [email3Date, setEmail3Date] = useState('');
+  const [whatsappFollowup, setWhatsappFollowup] = useState<string>('none');
+  const [interestedEmailFollowup, setInterestedEmailFollowup] = useState<string>('none');
+  const [notes, setNotes] = useState('');
+
+  // Stage & Pending State
+  const [pipelineStage, setPipelineStage] = useState<string>('outreach');
+  const [isPendingYes, setIsPendingYes] = useState<boolean>(false);
+
+  // UI state
   const [activeTab, setActiveTab] = useState<'timeline' | 'notes' | 'reminders'>('timeline');
   const [newNote, setNewNote] = useState('');
   const [newReminderDate, setNewReminderDate] = useState('');
   const [newReminderTime, setNewReminderTime] = useState('11:00');
   const [newReminderNote, setNewReminderNote] = useState('');
   const [isAddingReminder, setIsAddingReminder] = useState(false);
+  const [isCopied, setIsCopied] = useState(false);
+  const [isSavedNotice, setIsSavedNotice] = useState(false);
 
-  if (!isOpen || !leadId) return null;
+  // Sync state when lead opens
+  useEffect(() => {
+    if (lead) {
+      setFirstName(lead.first_name || '');
+      setLastName(lead.last_name || '');
+      setEmail(lead.email || '');
+      setCompanyName(lead.company_name || '');
+      setWhatsappNumber(lead.whatsapp_number || '');
+      setCountry(lead.country || '');
+      setCity(lead.city || '');
+      setPriority(lead.priority || 'Medium');
+      setCampaignId(lead.campaign_id || '');
+      setBrandId(lead.brand_id || '');
+      setAccountId(lead.account_id || '');
+      setAssignedUserId(lead.assigned_user_id || currentUser.id);
+      setEmail1Date(lead.email_1_date || lead.email_1 || '');
+      setEmail2Date(lead.email_2_date || lead.email_2 || '');
+      setEmail3Date(lead.email_3_date || lead.email_3 || '');
+      setWhatsappFollowup(lead.whatsapp_followup_stage || 'none');
+      setInterestedEmailFollowup(lead.interested_email_followup_stage || 'none');
+      setNotes(lead.notes || '');
 
-  const lead = leads.find((l) => l.id === leadId);
-  if (!lead) return null;
+      // Determine current stage
+      if (lead.meeting_count_type === 'YES') {
+        setPipelineStage('count_yes');
+      } else if (lead.meeting_count_type === 'NO') {
+        setPipelineStage('count_no');
+      } else if (lead.is_meeting_done) {
+        setPipelineStage('done');
+      } else if (lead.is_meeting_scheduled) {
+        setPipelineStage('scheduled');
+      } else if (lead.is_interested) {
+        setPipelineStage('interested');
+      } else {
+        setPipelineStage('outreach');
+      }
+
+      setIsPendingYes(Boolean(lead.is_pending && lead.meeting_count_type !== 'NO'));
+    }
+  }, [lead, currentUser.id]);
+
+  if (!isOpen || !leadId || !lead) return null;
 
   const leadActivities = activities.filter((a) => a.lead_id === leadId);
   const leadReminders = reminders.filter((r) => r.lead_id === leadId);
 
+  const handleCopyWhatsApp = () => {
+    if (!whatsappNumber) return;
+    navigator.clipboard.writeText(whatsappNumber);
+    setIsCopied(true);
+    setTimeout(() => setIsCopied(false), 2000);
+  };
+
   const handleSendWhatsApp = () => {
-    if (!lead.whatsapp_number) return;
-    const cleanNum = lead.whatsapp_number.replace(/[^0-9]/g, '');
+    if (!whatsappNumber) return;
+    const cleanNum = whatsappNumber.replace(/[^0-9]/g, '');
     window.open(`https://wa.me/${cleanNum}`, '_blank');
-    recordWhatsAppSent(lead.id, `Opened WhatsApp link for ${lead.whatsapp_number}`);
+    recordWhatsAppSent(lead.id, `Opened WhatsApp link for ${whatsappNumber}`);
   };
 
   const handleRecordCall = () => {
     recordCallDone(lead.id, 'Logged completed call with lead');
+  };
+
+  const handleSaveChanges = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+
+    const selectedCampaign = campaigns.find((c) => c.id === campaignId);
+    const selectedBrand = brands.find((b) => b.id === brandId);
+    const selectedAccount = accounts.find((a) => a.id === accountId);
+    const selectedUser = allUsers.find((u) => u.id === assignedUserId);
+
+    // Calculate milestone flags based on selected pipelineStage
+    let isInterested = lead.is_interested;
+    let isMeetingScheduled = lead.is_meeting_scheduled;
+    let isMeetingDone = lead.is_meeting_done;
+    let meetingCountType = lead.meeting_count_type;
+
+    const now = new Date().toISOString();
+
+    if (pipelineStage === 'outreach') {
+      isInterested = false;
+      isMeetingScheduled = false;
+      isMeetingDone = false;
+      meetingCountType = null;
+    } else if (pipelineStage === 'interested') {
+      isInterested = true;
+      isMeetingScheduled = false;
+      isMeetingDone = false;
+      meetingCountType = null;
+    } else if (pipelineStage === 'scheduled') {
+      isInterested = true;
+      isMeetingScheduled = true;
+      isMeetingDone = false;
+      meetingCountType = null;
+    } else if (pipelineStage === 'done') {
+      isInterested = true;
+      isMeetingScheduled = true;
+      isMeetingDone = true;
+      meetingCountType = null;
+    } else if (pipelineStage === 'count_yes') {
+      isInterested = true;
+      isMeetingScheduled = true;
+      isMeetingDone = true;
+      meetingCountType = 'YES';
+    } else if (pipelineStage === 'count_no') {
+      isInterested = true;
+      isMeetingScheduled = true;
+      isMeetingDone = true;
+      meetingCountType = 'NO';
+    }
+
+    // Rule: Count NO is NEVER pending
+    const canBePending = pipelineStage !== 'count_no';
+    const finalPending = canBePending && isPendingYes;
+
+    const updates: Partial<Lead> = {
+      first_name: firstName.trim(),
+      last_name: lastName.trim(),
+      email: email.trim().toLowerCase(),
+      company_name: companyName.trim(),
+      whatsapp_number: whatsappNumber.trim(),
+      country: country.trim(),
+      city: city.trim(),
+      priority,
+      campaign_id: campaignId || undefined,
+      campaign_name: selectedCampaign?.name,
+      brand_id: brandId || undefined,
+      brand_name: selectedBrand?.name,
+      account_id: accountId || undefined,
+      account_name: selectedAccount?.account_name,
+      assigned_user_id: assignedUserId || currentUser.id,
+      assigned_user_name: selectedUser?.full_name,
+      email_1: email1Date.trim(),
+      email_1_date: email1Date.trim(),
+      email_2: email2Date.trim(),
+      email_2_date: email2Date.trim(),
+      email_3: email3Date.trim(),
+      email_3_date: email3Date.trim(),
+      whatsapp_followup_stage: (whatsappFollowup === 'none' ? null : whatsappFollowup) as WhatsAppFollowUpStage,
+      interested_email_followup_stage: (interestedEmailFollowup === 'none' ? null : interestedEmailFollowup) as InterestedEmailFollowUpStage,
+      notes: notes.trim(),
+      is_interested: isInterested,
+      interested_at: isInterested ? (lead.interested_at || now) : null,
+      is_meeting_scheduled: isMeetingScheduled,
+      meeting_scheduled_at: isMeetingScheduled ? (lead.meeting_scheduled_at || now) : null,
+      is_meeting_done: isMeetingDone,
+      meeting_done_at: isMeetingDone ? (lead.meeting_done_at || now) : null,
+      meeting_count_type: meetingCountType,
+      meeting_count_at: meetingCountType ? (lead.meeting_count_at || now) : null,
+      is_pending: finalPending,
+      pending_at: finalPending ? (lead.pending_at || now) : null,
+    };
+
+    await updateLead(lead.id, updates, 'Updated lead information and stage');
+    setIsSavedNotice(true);
+    setTimeout(() => setIsSavedNotice(false), 2500);
   };
 
   const handleAddNoteSubmit = async (e: React.FormEvent) => {
@@ -91,8 +267,8 @@ export const LeadDetailModal: React.FC<LeadDetailModalProps> = ({
     if (!newReminderDate || !newReminderTime) return;
     await addReminder({
       lead_id: lead.id,
-      lead_name: `${lead.first_name} ${lead.last_name}`.trim() || lead.company_name,
-      lead_company: lead.company_name,
+      lead_name: `${firstName} ${lastName}`.trim() || companyName,
+      lead_company: companyName,
       reminder_type: 'Follow-up',
       reminder_date: newReminderDate,
       reminder_time: newReminderTime,
@@ -106,41 +282,52 @@ export const LeadDetailModal: React.FC<LeadDetailModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-[#0A0A0A] border border-[#1E3A5F] rounded-xl w-full max-w-4xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="bg-[#0A0A0A] border border-[#1E3A5F] rounded-xl w-full max-w-5xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
         {/* Header Bar */}
-        <div className="p-5 border-b border-[#1E3A5F] flex items-center justify-between bg-[#111827]">
+        <div className="p-4 border-b border-[#1E3A5F] flex items-center justify-between bg-[#111827]">
           <div className="flex items-center space-x-3">
             <div className="w-10 h-10 rounded-lg bg-[#182234] border border-[#00C2FF]/40 flex items-center justify-center text-[#00C2FF] font-bold text-base">
-              {lead.first_name ? lead.first_name[0] : lead.company_name ? lead.company_name[0] : 'L'}
+              {firstName ? firstName[0] : companyName ? companyName[0] : 'L'}
             </div>
             <div>
               <div className="flex items-center space-x-2">
                 <h3 className="text-base font-bold text-white">
-                  {lead.first_name || lead.last_name
-                    ? `${lead.first_name} ${lead.last_name}`.trim()
-                    : 'Unnamed Prospect'}
+                  {firstName || lastName ? `${firstName} ${lastName}`.trim() : 'Lead Details & Editor'}
                 </h3>
                 <span
                   className={`text-[10px] px-2 py-0.5 rounded font-mono font-semibold ${
-                    lead.priority === 'High'
+                    priority === 'High'
                       ? 'bg-red-500/20 text-red-400 border border-red-500/30'
-                      : lead.priority === 'DNC'
+                      : priority === 'DNC'
                       ? 'bg-rose-950 text-rose-300 border border-rose-800'
                       : 'bg-[#1E3A5F]/40 text-[#94A3B8]'
                   }`}
                 >
-                  {lead.priority}
+                  {priority}
                 </span>
+                {isSavedNotice && (
+                  <span className="text-[11px] font-semibold text-[#00E5A0] flex items-center gap-1 bg-[#00E5A0]/15 px-2 py-0.5 rounded border border-[#00E5A0]/30 animate-pulse">
+                    <Check className="w-3 h-3" /> Saved!
+                  </span>
+                )}
               </div>
-              <p className="text-xs text-[#94A3B8] flex items-center space-x-2 mt-0.5">
-                <span>{lead.company_name || 'No Company'}</span>
-                {lead.country && <span>? {lead.country}</span>}
-                <span className="text-[#00C2FF] font-mono">? {lead.email}</span>
+              <p className="text-xs text-[#94A3B8] flex items-center space-x-2 mt-0.5 font-mono">
+                <span className="text-[#00C2FF]">{email}</span>
+                {companyName && <span>? {companyName}</span>}
+                {city && <span>? {city}</span>}
               </p>
             </div>
           </div>
+
           <div className="flex items-center space-x-2">
+            <button
+              onClick={handleSaveChanges}
+              className="flex items-center space-x-1.5 px-3 py-1.5 bg-[#00C2FF] hover:bg-[#00C2FF]/80 text-black font-bold text-xs rounded-lg transition-all shadow-md"
+            >
+              <Save className="w-3.5 h-3.5" />
+              <span>Save Changes</span>
+            </button>
             <button
               onClick={onClose}
               className="p-1 text-[#7B7B7B] hover:text-white rounded hover:bg-[#1E3A5F]/40"
@@ -151,16 +338,26 @@ export const LeadDetailModal: React.FC<LeadDetailModalProps> = ({
         </div>
 
         {/* Action Quick Bar */}
-        <div className="px-6 py-2.5 bg-[#0E1522] border-b border-[#1E3A5F]/60 flex flex-wrap items-center justify-between gap-2 text-xs">
+        <div className="px-5 py-2.5 bg-[#0E1522] border-b border-[#1E3A5F]/60 flex flex-wrap items-center justify-between gap-2 text-xs">
           <div className="flex items-center space-x-2">
-            {lead.whatsapp_number ? (
-              <button
-                onClick={handleSendWhatsApp}
-                className="flex items-center space-x-1.5 px-3 py-1 bg-[#00E5A0]/15 hover:bg-[#00E5A0]/25 text-[#00E5A0] border border-[#00E5A0]/40 rounded-lg transition-all"
-              >
-                <Phone className="w-3.5 h-3.5" />
-                <span>WhatsApp ({lead.whatsapp_number})</span>
-              </button>
+            {whatsappNumber ? (
+              <div className="flex items-center space-x-1">
+                <button
+                  onClick={handleSendWhatsApp}
+                  className="flex items-center space-x-1.5 px-3 py-1 bg-[#00E5A0]/15 hover:bg-[#00E5A0]/25 text-[#00E5A0] border border-[#00E5A0]/40 rounded-lg transition-all"
+                  title="Open WhatsApp Chat"
+                >
+                  <Phone className="w-3.5 h-3.5" />
+                  <span>WhatsApp ({whatsappNumber})</span>
+                </button>
+                <button
+                  onClick={handleCopyWhatsApp}
+                  className="p-1 bg-[#111827] hover:bg-[#182234] border border-[#1E3A5F] text-[#94A3B8] hover:text-white rounded-lg transition-colors"
+                  title="Copy WhatsApp Number"
+                >
+                  {isCopied ? <Check className="w-3.5 h-3.5 text-[#00E5A0]" /> : <Copy className="w-3.5 h-3.5" />}
+                </button>
+              </div>
             ) : (
               <span className="text-[#7B7B7B] italic text-[11px]">No WhatsApp Number</span>
             )}
@@ -184,375 +381,553 @@ export const LeadDetailModal: React.FC<LeadDetailModalProps> = ({
             )}
           </div>
 
-          {/* Pending Toggle */}
-          <button
-            onClick={() => togglePending(lead.id, !lead.is_pending)}
-            className={`px-3 py-1 rounded-lg border font-medium transition-all ${
-              lead.is_pending
-                ? 'bg-[#F97316]/20 border-[#F97316] text-[#F97316] shadow-[0_0_10px_rgba(249,115,22,0.2)]'
-                : 'bg-[#111827] border-[#1E3A5F] text-[#7B7B7B] hover:text-white'
-            }`}
-          >
-            Pending: {lead.is_pending ? 'YES' : 'NO'}
-          </button>
+          {/* Pending Toggle: Rule: Count NO can NEVER be pending */}
+          <div className="flex items-center space-x-2">
+            <label className="text-[11px] text-[#94A3B8]">Pending Follow-up:</label>
+            <button
+              type="button"
+              disabled={pipelineStage === 'count_no'}
+              onClick={() => {
+                if (pipelineStage !== 'count_no') {
+                  setIsPendingYes(!isPendingYes);
+                }
+              }}
+              className={`px-3 py-1 rounded-lg border font-medium transition-all text-xs ${
+                pipelineStage === 'count_no'
+                  ? 'bg-neutral-900 border-neutral-800 text-neutral-600 cursor-not-allowed'
+                  : isPendingYes
+                  ? 'bg-[#F97316]/20 border-[#F97316] text-[#F97316] shadow-[0_0_10px_rgba(249,115,22,0.2)]'
+                  : 'bg-[#111827] border-[#1E3A5F] text-[#7B7B7B] hover:text-white'
+              }`}
+              title={pipelineStage === 'count_no' ? 'Count NO leads can never be pending' : 'Toggle Pending YES'}
+            >
+              {pipelineStage === 'count_no' ? 'Pending: Blocked (Count NO)' : isPendingYes ? 'Pending "YES"' : 'Pending: NO'}
+            </button>
+          </div>
         </div>
 
-        {/* Modal Main Content */}
-        <div className="flex-1 overflow-y-auto p-6 grid grid-cols-1 lg:grid-cols-3 gap-6 text-xs">
-          {/* Left Column: Details & Milestone Engine */}
-          <div className="lg:col-span-1 space-y-5">
-            {/* Cumulative Milestone Progress Card */}
-            <div className="p-4 bg-[#111827] border border-[#1E3A5F] rounded-xl space-y-3">
-              <h4 className="text-xs font-bold text-white uppercase tracking-wider text-[#00C2FF]">
-                Cumulative Lifecycle Milestones
-              </h4>
+        {/* Modal Main Content: 2 Columns */}
+        <div className="flex-1 overflow-y-auto p-5 grid grid-cols-1 lg:grid-cols-12 gap-5 text-xs">
+          {/* Left Column: Full Lead Information & Lifecycle Form (7 Cols) */}
+          <div className="lg:col-span-7 space-y-4">
+            {/* Primary Pipeline Stage Control */}
+            <div className="p-3.5 bg-[#111827] border border-[#00C2FF]/40 rounded-xl space-y-3">
+              <div className="flex items-center justify-between">
+                <h4 className="text-xs font-bold text-white uppercase tracking-wider text-[#00C2FF] flex items-center gap-1.5">
+                  <Flag className="w-3.5 h-3.5" />
+                  <span>Pipeline Milestone & Stage</span>
+                </h4>
+                <span className="text-[11px] font-mono text-[#00E5A0]">
+                  Cumulative Counting Active
+                </span>
+              </div>
 
-              {/* Stage 1: Interested */}
-              <div className="p-2.5 rounded-lg bg-[#0A0A0A] border border-[#1E3A5F]/40 flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <div
-                    className={`w-3 h-3 rounded-full ${
-                      lead.is_interested ? 'bg-[#00E5A0]' : 'bg-[#1E3A5F]'
-                    }`}
-                  />
-                  <div>
-                    <span className="font-semibold text-white">Stage 1 ? Interested</span>
-                    {lead.interested_at && (
-                      <p className="text-[10px] text-[#7B7B7B]">
-                        {new Date(lead.interested_at).toLocaleDateString()}
-                      </p>
-                    )}
-                  </div>
-                </div>
-                {!lead.is_interested && (
-                  <button
-                    onClick={() => markInterested(lead.id)}
-                    className="text-[10px] px-2 py-0.5 bg-[#00C2FF]/15 text-[#00C2FF] rounded hover:bg-[#00C2FF]/30"
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* Pipeline Stage Select */}
+                <div>
+                  <label className="text-[11px] text-[#94A3B8] font-semibold block mb-1">
+                    Primary Stage:
+                  </label>
+                  <select
+                    value={pipelineStage}
+                    onChange={(e) => {
+                      const newStage = e.target.value;
+                      setPipelineStage(newStage);
+                      if (newStage === 'count_no') {
+                        setIsPendingYes(false); // Count NO is NEVER pending
+                      }
+                    }}
+                    className="w-full bg-[#0A0A0A] text-white border border-[#1E3A5F] rounded-lg px-2.5 py-1.5 text-xs focus:border-[#00C2FF] focus:outline-none"
                   >
-                    Mark YES
-                  </button>
+                    <option value="outreach">Initial Outreach</option>
+                    <option value="interested">Stage 1: Interested</option>
+                    <option value="scheduled">Stage 2: Meeting Scheduled</option>
+                    <option value="done">Stage 3: Meeting Done</option>
+                    <option value="count_yes">Stage 4: Meeting Count = YES</option>
+                    <option value="count_no">Stage 4b: Meeting Count = NO</option>
+                  </select>
+                </div>
+
+                {/* WhatsApp Follow Up Stage */}
+                <div>
+                  <label className="text-[11px] text-[#94A3B8] font-semibold block mb-1">
+                    WhatsApp Follow Up:
+                  </label>
+                  <select
+                    value={whatsappFollowup}
+                    onChange={(e) => setWhatsappFollowup(e.target.value)}
+                    className="w-full bg-[#0A0A0A] text-white border border-[#1E3A5F] rounded-lg px-2.5 py-1.5 text-xs focus:border-[#00C2FF] focus:outline-none"
+                  >
+                    <option value="none">None / -</option>
+                    <option value="WA1 Sent">WA1 Sent</option>
+                    <option value="WA2 Follow Up Sent">WA2 Follow Up Sent</option>
+                    <option value="WA3 Follow Up Sent">WA3 Follow Up Sent</option>
+                  </select>
+                </div>
+
+                {/* Interested Email Follow Up Stage */}
+                <div>
+                  <label className="text-[11px] text-[#94A3B8] font-semibold block mb-1">
+                    Interested Email Follow Up:
+                  </label>
+                  <select
+                    value={interestedEmailFollowup}
+                    onChange={(e) => setInterestedEmailFollowup(e.target.value)}
+                    className="w-full bg-[#0A0A0A] text-white border border-[#1E3A5F] rounded-lg px-2.5 py-1.5 text-xs focus:border-[#00C2FF] focus:outline-none"
+                  >
+                    <option value="none">None / -</option>
+                    <option value="FW1 Sent">FW1 Sent</option>
+                    <option value="FW2 Sent">FW2 Sent</option>
+                    <option value="FW3 Sent">FW3 Sent</option>
+                  </select>
+                </div>
+
+                {/* Scheduled Meeting Display if present */}
+                {lead.meeting_date && (
+                  <div>
+                    <label className="text-[11px] text-[#94A3B8] font-semibold block mb-1">
+                      Meeting Scheduled Time:
+                    </label>
+                    <div className="bg-[#0A0A0A] border border-[#1E3A5F] rounded-lg px-2.5 py-1.5 text-xs text-[#00C2FF] font-mono">
+                      {lead.meeting_date} at {formatTo12Hour(lead.meeting_time)}
+                    </div>
+                  </div>
                 )}
-              </div>
-
-              {/* Stage 2: Meeting Scheduled */}
-              <div className="p-2.5 rounded-lg bg-[#0A0A0A] border border-[#1E3A5F]/40 flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <div
-                    className={`w-3 h-3 rounded-full ${
-                      lead.is_meeting_scheduled ? 'bg-[#00E5A0]' : 'bg-[#1E3A5F]'
-                    }`}
-                  />
-                  <div>
-                    <span className="font-semibold text-white">Stage 2 ? Meeting Sched</span>
-                    {lead.meeting_date && (
-                      <p className="text-[10px] text-[#00C2FF]">
-                        {lead.meeting_date} at {lead.meeting_time || 'TBD'}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Stage 3: Meeting Done */}
-              <div className="p-2.5 rounded-lg bg-[#0A0A0A] border border-[#1E3A5F]/40 flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <div
-                    className={`w-3 h-3 rounded-full ${
-                      lead.is_meeting_done ? 'bg-[#00E5A0]' : 'bg-[#1E3A5F]'
-                    }`}
-                  />
-                  <div>
-                    <span className="font-semibold text-white">Stage 3 ? Meeting Done</span>
-                    {lead.meeting_done_at && (
-                      <p className="text-[10px] text-[#7B7B7B]">
-                        {new Date(lead.meeting_done_at).toLocaleDateString()}
-                      </p>
-                    )}
-                  </div>
-                </div>
-                {!lead.is_meeting_done && (
-                  <button
-                    onClick={() => markMeetingDone(lead.id)}
-                    className="text-[10px] px-2 py-0.5 bg-[#00E5A0]/15 text-[#00E5A0] rounded hover:bg-[#00E5A0]/30"
-                  >
-                    Mark Done
-                  </button>
-                )}
-              </div>
-
-              {/* Stage 4: Meeting Count (YES / NO) */}
-              <div className="p-2.5 rounded-lg bg-[#0A0A0A] border border-[#1E3A5F]/40 space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="font-semibold text-white">Stage 4 ? Meeting Count</span>
-                  <span
-                    className={`font-mono font-bold text-[11px] px-2 py-0.5 rounded ${
-                      lead.meeting_count_type === 'YES'
-                        ? 'bg-[#00E5A0]/20 text-[#00E5A0]'
-                        : lead.meeting_count_type === 'NO'
-                        ? 'bg-[#F97316]/20 text-[#F97316]'
-                        : 'bg-[#1E3A5F]/40 text-[#7B7B7B]'
-                    }`}
-                  >
-                    {lead.meeting_count_type || 'NOT SET'}
-                  </span>
-                </div>
-                <div className="grid grid-cols-2 gap-2 pt-1">
-                  <button
-                    onClick={() => setMeetingCount(lead.id, 'YES')}
-                    className={`py-1 rounded font-medium border text-center transition-all ${
-                      lead.meeting_count_type === 'YES'
-                        ? 'bg-[#00E5A0] text-black border-[#00E5A0]'
-                        : 'bg-[#111827] text-[#94A3B8] border-[#1E3A5F] hover:text-white'
-                    }`}
-                  >
-                    Count YES
-                  </button>
-                  <button
-                    onClick={() => setMeetingCount(lead.id, 'NO')}
-                    className={`py-1 rounded font-medium border text-center transition-all ${
-                      lead.meeting_count_type === 'NO'
-                        ? 'bg-[#F97316] text-black border-[#F97316]'
-                        : 'bg-[#111827] text-[#94A3B8] border-[#1E3A5F] hover:text-white'
-                    }`}
-                  >
-                    Count NO
-                  </button>
-                </div>
-                <p className="text-[10px] text-[#7B7B7B] leading-tight">
-                  Rule: Meeting Count NO counts as Meeting Done, but does NOT increment Total Meeting Count.
-                </p>
               </div>
             </div>
 
-            {/* Campaign & Assignment Metadata */}
-            <div className="p-4 bg-[#111827] border border-[#1E3A5F] rounded-xl space-y-2 text-xs">
-              <h4 className="font-bold text-white uppercase text-[11px] text-[#94A3B8]">
-                Outbound Metadata
+            {/* Editable Prospect Information Card */}
+            <div className="p-4 bg-[#111827] border border-[#1E3A5F] rounded-xl space-y-3">
+              <h4 className="text-xs font-bold text-white uppercase tracking-wider text-[#94A3B8]">
+                Prospect Contact & Lead Data (Editable)
               </h4>
-              <div className="space-y-1.5 pt-1">
-                <div className="flex justify-between">
-                  <span className="text-[#7B7B7B]">Campaign:</span>
-                  <span className="text-white font-medium">{lead.campaign_name || '?'}</span>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* Email Address */}
+                <div className="sm:col-span-2">
+                  <label className="text-[11px] text-[#94A3B8] font-semibold block mb-1">
+                    Email Address *
+                  </label>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full bg-[#0A0A0A] border border-[#1E3A5F] rounded-lg px-2.5 py-1.5 text-xs text-white focus:border-[#00C2FF] focus:outline-none font-mono"
+                  />
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-[#7B7B7B]">Brand:</span>
-                  <span className="text-white font-medium">{lead.brand_name || '?'}</span>
+
+                {/* First Name */}
+                <div>
+                  <label className="text-[11px] text-[#94A3B8] font-semibold block mb-1">
+                    First Name
+                  </label>
+                  <input
+                    type="text"
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
+                    className="w-full bg-[#0A0A0A] border border-[#1E3A5F] rounded-lg px-2.5 py-1.5 text-xs text-white focus:border-[#00C2FF] focus:outline-none"
+                  />
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-[#7B7B7B]">Account:</span>
-                  <span className="text-white font-medium">{lead.account_name || '?'}</span>
+
+                {/* Last Name */}
+                <div>
+                  <label className="text-[11px] text-[#94A3B8] font-semibold block mb-1">
+                    Last Name
+                  </label>
+                  <input
+                    type="text"
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                    className="w-full bg-[#0A0A0A] border border-[#1E3A5F] rounded-lg px-2.5 py-1.5 text-xs text-white focus:border-[#00C2FF] focus:outline-none"
+                  />
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-[#7B7B7B]">Assigned Rep:</span>
-                  <span className="text-[#00C2FF] font-medium">{lead.assigned_user_name || '?'}</span>
+
+                {/* Company Name */}
+                <div>
+                  <label className="text-[11px] text-[#94A3B8] font-semibold block mb-1">
+                    Company Name
+                  </label>
+                  <input
+                    type="text"
+                    value={companyName}
+                    onChange={(e) => setCompanyName(e.target.value)}
+                    className="w-full bg-[#0A0A0A] border border-[#1E3A5F] rounded-lg px-2.5 py-1.5 text-xs text-white focus:border-[#00C2FF] focus:outline-none"
+                  />
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-[#7B7B7B]">Created:</span>
-                  <span className="text-[#94A3B8] font-mono text-[11px]">
-                    {new Date(lead.created_at).toLocaleDateString()}
-                  </span>
+
+                {/* WhatsApp Number */}
+                <div>
+                  <label className="text-[11px] text-[#94A3B8] font-semibold block mb-1">
+                    WhatsApp Number
+                  </label>
+                  <div className="flex items-center space-x-1">
+                    <input
+                      type="text"
+                      value={whatsappNumber}
+                      onChange={(e) => setWhatsappNumber(e.target.value)}
+                      placeholder="+44..."
+                      className="w-full bg-[#0A0A0A] border border-[#1E3A5F] rounded-lg px-2.5 py-1.5 text-xs text-white focus:border-[#00C2FF] focus:outline-none font-mono"
+                    />
+                    {whatsappNumber && (
+                      <button
+                        type="button"
+                        onClick={handleCopyWhatsApp}
+                        className="p-1.5 bg-[#0A0A0A] border border-[#1E3A5F] rounded text-[#94A3B8] hover:text-white"
+                        title="Copy Number"
+                      >
+                        {isCopied ? <Check className="w-3.5 h-3.5 text-[#00E5A0]" /> : <Copy className="w-3.5 h-3.5" />}
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Country */}
+                <div>
+                  <label className="text-[11px] text-[#94A3B8] font-semibold block mb-1">
+                    Country
+                  </label>
+                  <input
+                    type="text"
+                    value={country}
+                    onChange={(e) => setCountry(e.target.value)}
+                    className="w-full bg-[#0A0A0A] border border-[#1E3A5F] rounded-lg px-2.5 py-1.5 text-xs text-white focus:border-[#00C2FF] focus:outline-none"
+                  />
+                </div>
+
+                {/* City */}
+                <div>
+                  <label className="text-[11px] text-[#94A3B8] font-semibold block mb-1">
+                    City
+                  </label>
+                  <input
+                    type="text"
+                    value={city}
+                    onChange={(e) => setCity(e.target.value)}
+                    className="w-full bg-[#0A0A0A] border border-[#1E3A5F] rounded-lg px-2.5 py-1.5 text-xs text-white focus:border-[#00C2FF] focus:outline-none"
+                  />
+                </div>
+
+                {/* Priority */}
+                <div>
+                  <label className="text-[11px] text-[#94A3B8] font-semibold block mb-1">
+                    Priority
+                  </label>
+                  <select
+                    value={priority}
+                    onChange={(e) => setPriority(e.target.value as Priority)}
+                    className="w-full bg-[#0A0A0A] text-white border border-[#1E3A5F] rounded-lg px-2.5 py-1.5 text-xs focus:border-[#00C2FF] focus:outline-none"
+                  >
+                    <option value="High">High</option>
+                    <option value="Medium">Medium</option>
+                    <option value="Low">Low</option>
+                    <option value="DNC">DNC (Do Not Contact)</option>
+                  </select>
+                </div>
+
+                {/* Campaign */}
+                <div>
+                  <label className="text-[11px] text-[#94A3B8] font-semibold block mb-1">
+                    Campaign
+                  </label>
+                  <select
+                    value={campaignId}
+                    onChange={(e) => setCampaignId(e.target.value)}
+                    className="w-full bg-[#0A0A0A] text-white border border-[#1E3A5F] rounded-lg px-2.5 py-1.5 text-xs focus:border-[#00C2FF] focus:outline-none"
+                  >
+                    <option value="">Select Campaign</option>
+                    {campaigns.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Brand Approached */}
+                <div>
+                  <label className="text-[11px] text-[#94A3B8] font-semibold block mb-1">
+                    Brand Approached
+                  </label>
+                  <select
+                    value={brandId}
+                    onChange={(e) => setBrandId(e.target.value)}
+                    className="w-full bg-[#0A0A0A] text-white border border-[#1E3A5F] rounded-lg px-2.5 py-1.5 text-xs focus:border-[#00C2FF] focus:outline-none"
+                  >
+                    <option value="">Select Brand</option>
+                    {brands.map((b) => (
+                      <option key={b.id} value={b.id}>
+                        {b.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Outbound Account */}
+                <div>
+                  <label className="text-[11px] text-[#94A3B8] font-semibold block mb-1">
+                    Outbound Account
+                  </label>
+                  <select
+                    value={accountId}
+                    onChange={(e) => setAccountId(e.target.value)}
+                    className="w-full bg-[#0A0A0A] text-white border border-[#1E3A5F] rounded-lg px-2.5 py-1.5 text-xs focus:border-[#00C2FF] focus:outline-none"
+                  >
+                    <option value="">Select Account</option>
+                    {accounts.map((a) => (
+                      <option key={a.id} value={a.id}>
+                        {a.account_name} ({a.sender_name})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Assigned Sales Rep */}
+                <div>
+                  <label className="text-[11px] text-[#94A3B8] font-semibold block mb-1">
+                    Assigned Rep
+                  </label>
+                  <select
+                    value={assignedUserId}
+                    onChange={(e) => setAssignedUserId(e.target.value)}
+                    className="w-full bg-[#0A0A0A] text-white border border-[#1E3A5F] rounded-lg px-2.5 py-1.5 text-xs focus:border-[#00C2FF] focus:outline-none"
+                  >
+                    {allUsers.map((u) => (
+                      <option key={u.id} value={u.id}>
+                        {u.full_name} ({u.role})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            {/* Email Dispatch Dates (Actual Sending Dates) */}
+            <div className="p-4 bg-[#111827] border border-[#1E3A5F] rounded-xl space-y-3">
+              <h4 className="text-xs font-bold text-white uppercase tracking-wider text-[#94A3B8]">
+                Email Dispatch Actual Dates
+              </h4>
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="text-[11px] text-[#94A3B8] font-semibold block mb-1">
+                    Email 1 Sent Date:
+                  </label>
+                  <input
+                    type="text"
+                    value={email1Date}
+                    onChange={(e) => setEmail1Date(e.target.value)}
+                    placeholder="e.g. 06/09/26"
+                    className="w-full bg-[#0A0A0A] border border-[#1E3A5F] rounded-lg px-2.5 py-1.5 text-xs text-white focus:border-[#00C2FF] focus:outline-none font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[11px] text-[#94A3B8] font-semibold block mb-1">
+                    Email 2 Sent Date:
+                  </label>
+                  <input
+                    type="text"
+                    value={email2Date}
+                    onChange={(e) => setEmail2Date(e.target.value)}
+                    placeholder="e.g. 10/09/26"
+                    className="w-full bg-[#0A0A0A] border border-[#1E3A5F] rounded-lg px-2.5 py-1.5 text-xs text-white focus:border-[#00C2FF] focus:outline-none font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[11px] text-[#94A3B8] font-semibold block mb-1">
+                    Email 3 Sent Date:
+                  </label>
+                  <input
+                    type="text"
+                    value={email3Date}
+                    onChange={(e) => setEmail3Date(e.target.value)}
+                    placeholder="e.g. 14/09/26"
+                    className="w-full bg-[#0A0A0A] border border-[#1E3A5F] rounded-lg px-2.5 py-1.5 text-xs text-white focus:border-[#00C2FF] focus:outline-none font-mono"
+                  />
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Right Column: Tabbed Timeline, Notes, and Reminders */}
-          <div className="lg:col-span-2 flex flex-col space-y-4">
-            {/* Tabs Header */}
-            <div className="flex items-center space-x-3 border-b border-[#1E3A5F] pb-2">
+          {/* Right Column: Timeline, Notes, Reminders (5 Cols) */}
+          <div className="lg:col-span-5 space-y-4">
+            {/* Tabs */}
+            <div className="flex border-b border-[#1E3A5F] text-xs">
               <button
                 onClick={() => setActiveTab('timeline')}
-                className={`flex items-center space-x-1.5 pb-2 text-xs font-semibold transition-all ${
+                className={`py-2 px-3 font-semibold border-b-2 transition-all flex items-center space-x-1.5 ${
                   activeTab === 'timeline'
-                    ? 'text-[#00C2FF] border-b-2 border-[#00C2FF]'
-                    : 'text-[#7B7B7B] hover:text-white'
+                    ? 'border-[#00C2FF] text-[#00C2FF]'
+                    : 'border-transparent text-[#7B7B7B] hover:text-white'
                 }`}
               >
                 <History className="w-3.5 h-3.5" />
-                <span>Activity Timeline ({leadActivities.length})</span>
+                <span>Timeline</span>
               </button>
+
               <button
                 onClick={() => setActiveTab('notes')}
-                className={`flex items-center space-x-1.5 pb-2 text-xs font-semibold transition-all ${
+                className={`py-2 px-3 font-semibold border-b-2 transition-all flex items-center space-x-1.5 ${
                   activeTab === 'notes'
-                    ? 'text-[#00C2FF] border-b-2 border-[#00C2FF]'
-                    : 'text-[#7B7B7B] hover:text-white'
+                    ? 'border-[#00C2FF] text-[#00C2FF]'
+                    : 'border-transparent text-[#7B7B7B] hover:text-white'
                 }`}
               >
                 <MessageSquare className="w-3.5 h-3.5" />
-                <span>Notes Log</span>
+                <span>Notes</span>
               </button>
+
               <button
                 onClick={() => setActiveTab('reminders')}
-                className={`flex items-center space-x-1.5 pb-2 text-xs font-semibold transition-all ${
+                className={`py-2 px-3 font-semibold border-b-2 transition-all flex items-center space-x-1.5 ${
                   activeTab === 'reminders'
-                    ? 'text-[#00C2FF] border-b-2 border-[#00C2FF]'
-                    : 'text-[#7B7B7B] hover:text-white'
+                    ? 'border-[#00C2FF] text-[#00C2FF]'
+                    : 'border-transparent text-[#7B7B7B] hover:text-white'
                 }`}
               >
                 <Clock className="w-3.5 h-3.5" />
-                <span>Reminders ({leadReminders.length})</span>
+                <span>Reminders</span>
               </button>
             </div>
 
-            {/* Tab: Activity Timeline */}
+            {/* Tab Body: Timeline */}
             {activeTab === 'timeline' && (
-              <div className="space-y-3 flex-1 overflow-y-auto max-h-96 pr-2">
+              <div className="space-y-3 max-h-[460px] overflow-y-auto pr-1">
                 {leadActivities.length === 0 ? (
-                  <p className="text-center py-10 text-[#7B7B7B]">No activity recorded yet.</p>
+                  <p className="text-center text-[#7B7B7B] py-8">No activities recorded yet.</p>
                 ) : (
                   leadActivities.map((act) => (
                     <div
                       key={act.id}
-                      className="p-3 bg-[#111827] border border-[#1E3A5F]/60 rounded-lg flex items-start space-x-3"
+                      className="p-2.5 bg-[#111827] border border-[#1E3A5F]/60 rounded-lg space-y-1"
                     >
-                      <div className="w-2 h-2 rounded-full bg-[#00C2FF] mt-1.5 shrink-0" />
-                      <div className="flex-1">
-                        <div className="flex items-center justify-between">
-                          <span className="font-semibold text-white">{act.activity_type}</span>
-                          <span className="text-[10px] text-[#7B7B7B] font-mono">
-                            {new Date(act.created_at).toLocaleDateString()} {new Date(act.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                          </span>
-                        </div>
-                        {act.description && (
-                          <p className="text-[#94A3B8] text-[11px] mt-0.5 leading-relaxed">
-                            {act.description}
-                          </p>
-                        )}
-                        {act.user_name && (
-                          <span className="text-[10px] text-[#00C2FF]/70 block mt-1">
-                            By {act.user_name}
-                          </span>
-                        )}
+                      <div className="flex items-center justify-between">
+                        <span className="font-semibold text-white">{act.activity_type}</span>
+                        <span className="text-[10px] text-[#7B7B7B] font-mono">
+                          {formatTo12Hour(act.created_at)}
+                        </span>
                       </div>
+                      {act.description && (
+                        <p className="text-[#94A3B8] text-[11px]">{act.description}</p>
+                      )}
                     </div>
                   ))
                 )}
               </div>
             )}
 
-            {/* Tab: Notes Log */}
+            {/* Tab Body: Notes */}
             {activeTab === 'notes' && (
-              <div className="space-y-4 flex-1 flex flex-col">
+              <div className="space-y-3">
                 <form onSubmit={handleAddNoteSubmit} className="space-y-2">
                   <textarea
-                    rows={3}
                     value={newNote}
                     onChange={(e) => setNewNote(e.target.value)}
-                    placeholder="Write a note about this lead or conversation..."
-                    className="w-full bg-[#111827] text-white border border-[#1E3A5F] rounded-lg p-3 text-xs focus:outline-none focus:border-[#00C2FF]"
+                    placeholder="Add a new note about this prospect..."
+                    rows={3}
+                    className="w-full bg-[#0A0A0A] border border-[#1E3A5F] rounded-lg p-2.5 text-xs text-white focus:border-[#00C2FF] focus:outline-none"
                   />
                   <div className="flex justify-end">
                     <button
                       type="submit"
-                      disabled={!newNote.trim()}
-                      className="flex items-center space-x-1.5 px-4 py-1.5 bg-[#00C2FF] text-black font-semibold rounded-lg hover:bg-[#00C2FF]/90 transition-all disabled:opacity-50"
+                      className="px-3 py-1 bg-[#00C2FF] hover:bg-[#00C2FF]/80 text-black font-semibold text-xs rounded transition-all"
                     >
-                      <Send className="w-3 h-3" />
-                      <span>Post Note</span>
+                      Add Note
                     </button>
                   </div>
                 </form>
 
-                <div className="border-t border-[#1E3A5F]/60 pt-3">
-                  <h5 className="font-semibold text-white mb-2 text-[11px] uppercase tracking-wider text-[#94A3B8]">
-                    Existing Notes History
-                  </h5>
-                  <div className="p-3 bg-[#111827] border border-[#1E3A5F] rounded-lg whitespace-pre-wrap font-mono text-[11px] text-[#94A3B8] leading-relaxed max-h-60 overflow-y-auto">
-                    {lead.notes || 'No notes currently recorded for this prospect.'}
-                  </div>
+                <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
+                  {notes && (
+                    <div className="p-2.5 bg-[#111827] border border-[#1E3A5F]/60 rounded-lg">
+                      <span className="text-[10px] text-[#00C2FF] font-semibold block mb-0.5">Initial Notes</span>
+                      <p className="text-white text-xs">{notes}</p>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
 
-            {/* Tab: Reminders */}
+            {/* Tab Body: Reminders */}
             {activeTab === 'reminders' && (
-              <div className="space-y-4 flex-1 flex flex-col">
+              <div className="space-y-3">
                 <div className="flex justify-between items-center">
-                  <span className="font-semibold text-white">Lead Follow-up Reminders</span>
+                  <span className="text-xs font-semibold text-white">Lead Reminders</span>
                   <button
                     onClick={() => setIsAddingReminder(!isAddingReminder)}
-                    className="text-xs text-[#00C2FF] hover:underline"
+                    className="text-[11px] text-[#00C2FF] hover:underline flex items-center gap-1"
                   >
-                    {isAddingReminder ? 'Cancel' : '+ Set New Reminder'}
+                    <Plus className="w-3 h-3" /> Add Reminder
                   </button>
                 </div>
 
                 {isAddingReminder && (
-                  <form
-                    onSubmit={handleAddReminderSubmit}
-                    className="p-3 bg-[#111827] border border-[#00C2FF]/30 rounded-lg space-y-3"
-                  >
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-[#94A3B8] text-[11px] mb-1">Date</label>
-                        <input
-                          type="date"
-                          required
-                          value={newReminderDate}
-                          onChange={(e) => setNewReminderDate(e.target.value)}
-                          className="w-full bg-[#0A0A0A] text-white border border-[#1E3A5F] rounded p-1.5 focus:border-[#00C2FF]"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[#94A3B8] text-[11px] mb-1">Time</label>
-                        <input
-                          type="time"
-                          required
-                          value={newReminderTime}
-                          onChange={(e) => setNewReminderTime(e.target.value)}
-                          className="w-full bg-[#0A0A0A] text-white border border-[#1E3A5F] rounded p-1.5 focus:border-[#00C2FF]"
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <label className="block text-[#94A3B8] text-[11px] mb-1">Reminder Note</label>
-                      <input
-                        type="text"
-                        placeholder="e.g. Call back regarding quote"
-                        value={newReminderNote}
-                        onChange={(e) => setNewReminderNote(e.target.value)}
-                        className="w-full bg-[#0A0A0A] text-white border border-[#1E3A5F] rounded p-1.5 focus:border-[#00C2FF]"
-                      />
-                    </div>
-                    <div className="flex justify-end">
+                  <form onSubmit={handleAddReminderSubmit} className="p-3 bg-[#111827] border border-[#1E3A5F] rounded-lg space-y-2">
+                    <input
+                      type="date"
+                      value={newReminderDate}
+                      onChange={(e) => setNewReminderDate(e.target.value)}
+                      className="w-full bg-[#0A0A0A] text-white border border-[#1E3A5F] rounded px-2 py-1 text-xs"
+                      required
+                    />
+                    <input
+                      type="time"
+                      value={newReminderTime}
+                      onChange={(e) => setNewReminderTime(e.target.value)}
+                      className="w-full bg-[#0A0A0A] text-white border border-[#1E3A5F] rounded px-2 py-1 text-xs"
+                      required
+                    />
+                    <input
+                      type="text"
+                      value={newReminderNote}
+                      onChange={(e) => setNewReminderNote(e.target.value)}
+                      placeholder="Reminder note..."
+                      className="w-full bg-[#0A0A0A] text-white border border-[#1E3A5F] rounded px-2 py-1 text-xs"
+                    />
+                    <div className="flex justify-end space-x-2">
+                      <button
+                        type="button"
+                        onClick={() => setIsAddingReminder(false)}
+                        className="px-2 py-0.5 text-xs text-[#7B7B7B]"
+                      >
+                        Cancel
+                      </button>
                       <button
                         type="submit"
-                        className="px-4 py-1.5 bg-[#00E5A0] text-black font-semibold rounded hover:bg-[#00E5A0]/90"
+                        className="px-2.5 py-0.5 bg-[#00C2FF] text-black font-semibold text-xs rounded"
                       >
-                        Save Reminder
+                        Save
                       </button>
                     </div>
                   </form>
                 )}
 
-                <div className="space-y-2 max-h-60 overflow-y-auto">
+                <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
                   {leadReminders.length === 0 ? (
-                    <p className="text-center py-8 text-[#7B7B7B]">No reminders set for this lead.</p>
+                    <p className="text-center text-[#7B7B7B] py-6">No reminders scheduled.</p>
                   ) : (
                     leadReminders.map((rem) => (
                       <div
                         key={rem.id}
-                        className={`p-3 rounded-lg border flex items-center justify-between ${
-                          rem.is_completed
-                            ? 'bg-[#111827]/40 border-[#1E3A5F]/30 opacity-60'
-                            : 'bg-[#111827] border-[#1E3A5F]'
+                        className={`p-2.5 bg-[#111827] border rounded-lg flex items-center justify-between ${
+                          rem.is_completed ? 'border-emerald-800/40 opacity-60' : 'border-[#1E3A5F]'
                         }`}
                       >
                         <div>
-                          <p className={`font-semibold text-white ${rem.is_completed ? 'line-through' : ''}`}>
-                            {rem.note || 'Follow up'}
+                          <p className={`font-semibold ${rem.is_completed ? 'line-through text-[#7B7B7B]' : 'text-white'}`}>
+                            {rem.note || 'Follow-up'}
                           </p>
                           <span className="text-[10px] text-[#00C2FF] font-mono">
-                            {rem.reminder_date} at {rem.reminder_time}
+                            {rem.reminder_date} at {formatTo12Hour(rem.reminder_time)}
                           </span>
                         </div>
                         {!rem.is_completed && (
                           <button
                             onClick={() => completeReminder(rem.id)}
-                            className="text-[11px] px-2 py-1 bg-[#00E5A0]/15 text-[#00E5A0] border border-[#00E5A0]/30 rounded hover:bg-[#00E5A0]/25"
+                            className="p-1 text-[#00E5A0] hover:bg-[#00E5A0]/20 rounded"
+                            title="Mark Done"
                           >
-                            Mark Complete
+                            <CheckCircle2 className="w-4 h-4" />
                           </button>
                         )}
                       </div>
@@ -561,6 +936,30 @@ export const LeadDetailModal: React.FC<LeadDetailModalProps> = ({
                 </div>
               </div>
             )}
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="p-3.5 bg-[#111827] border-t border-[#1E3A5F] flex items-center justify-between text-xs">
+          <span className="text-[#7B7B7B] text-[11px]">
+            Created on: {lead.created_at ? lead.created_at.split('T')[0] : 'N/A'}
+          </span>
+          <div className="flex items-center space-x-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-3 py-1.5 bg-[#0A0A0A] hover:bg-[#182234] text-white border border-[#1E3A5F] rounded-lg transition-colors"
+            >
+              Close
+            </button>
+            <button
+              type="button"
+              onClick={handleSaveChanges}
+              className="flex items-center space-x-1 px-4 py-1.5 bg-[#00C2FF] hover:bg-[#00C2FF]/80 text-black font-bold rounded-lg transition-all shadow-md"
+            >
+              <Save className="w-3.5 h-3.5" />
+              <span>Save Changes</span>
+            </button>
           </div>
         </div>
       </div>

@@ -15,11 +15,14 @@ import {
   Trash2,
   PhoneCall,
   X,
-  RotateCcw
+  RotateCcw,
+  Copy,
+  Check
 } from 'lucide-react';
 import { useLeads } from '../../context/LeadContext';
 import { useAuth } from '../../context/AuthContext';
 import { Lead } from '../../types';
+import { formatTo12Hour, formatDateFormatted } from '../../lib/formatTime';
 
 interface AllLeadsTableProps {
   searchQuery: string;
@@ -36,6 +39,8 @@ interface ColumnFilters {
   email1: string;
   email2: string;
   email3: string;
+  whatsappFollowup: string;
+  interestedFollowup: string;
   account: string;
   pipelineStage: string;
   dateAdded: string;
@@ -50,6 +55,8 @@ const INITIAL_FILTERS: ColumnFilters = {
   email1: 'all',
   email2: 'all',
   email3: 'all',
+  whatsappFollowup: 'all',
+  interestedFollowup: 'all',
   account: 'all',
   pipelineStage: 'all',
   dateAdded: 'all',
@@ -87,6 +94,9 @@ export const AllLeadsTable: React.FC<AllLeadsTableProps> = ({
   // Bulk Selection State
   const [selectedLeadIds, setSelectedLeadIds] = useState<string[]>([]);
 
+  // Copied WhatsApp state
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
   // Ref for closing dropdown when clicking outside
   const popoverRef = useRef<HTMLDivElement>(null);
 
@@ -104,6 +114,13 @@ export const AllLeadsTable: React.FC<AllLeadsTableProps> = ({
     };
   }, [activeFilterCol]);
 
+  const handleCopyWhatsApp = (id: string, num: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    navigator.clipboard.writeText(num);
+    setCopiedId(id);
+    setTimeout(() => setCopiedId(null), 2000);
+  };
+
   // Check if any column filter is active
   const hasActiveFilters = useMemo(() => {
     return (
@@ -115,6 +132,8 @@ export const AllLeadsTable: React.FC<AllLeadsTableProps> = ({
       colFilters.email1 !== 'all' ||
       colFilters.email2 !== 'all' ||
       colFilters.email3 !== 'all' ||
+      colFilters.whatsappFollowup !== 'all' ||
+      colFilters.interestedFollowup !== 'all' ||
       colFilters.account !== 'all' ||
       colFilters.pipelineStage !== 'all' ||
       colFilters.dateAdded !== 'all'
@@ -191,32 +210,45 @@ export const AllLeadsTable: React.FC<AllLeadsTableProps> = ({
         }
       }
 
-      // 6. Email 1 filter
+      // 6. Email 1 date filter
       if (colFilters.email1 !== 'all') {
-        const status = lead.email_1 || 'Unsent';
-        if (status.toLowerCase() !== colFilters.email1.toLowerCase()) return false;
+        const d = lead.email_1_date || lead.email_1 || '';
+        if (colFilters.email1 === 'sent' && !d) return false;
+        if (colFilters.email1 === 'unsent' && d) return false;
       }
 
-      // 7. Email 2 filter
+      // 7. Email 2 date filter
       if (colFilters.email2 !== 'all') {
-        const status = lead.email_2 || 'Unsent';
-        if (status.toLowerCase() !== colFilters.email2.toLowerCase()) return false;
+        const d = lead.email_2_date || lead.email_2 || '';
+        if (colFilters.email2 === 'sent' && !d) return false;
+        if (colFilters.email2 === 'unsent' && d) return false;
       }
 
-      // 8. Email 3 filter
+      // 8. Email 3 date filter
       if (colFilters.email3 !== 'all') {
-        const status = lead.email_3 || 'Unsent';
-        if (status.toLowerCase() !== colFilters.email3.toLowerCase()) return false;
+        const d = lead.email_3_date || lead.email_3 || '';
+        if (colFilters.email3 === 'sent' && !d) return false;
+        if (colFilters.email3 === 'unsent' && d) return false;
       }
 
-      // 9. Account Name filter
+      // 9. WhatsApp Follow Up filter
+      if (colFilters.whatsappFollowup !== 'all') {
+        if (lead.whatsapp_followup_stage !== colFilters.whatsappFollowup) return false;
+      }
+
+      // 10. Interested Email Follow Up filter
+      if (colFilters.interestedFollowup !== 'all') {
+        if (lead.interested_email_followup_stage !== colFilters.interestedFollowup) return false;
+      }
+
+      // 11. Account Name filter
       if (colFilters.account !== 'all') {
         if (lead.account_id !== colFilters.account && lead.account_name !== colFilters.account) {
           return false;
         }
       }
 
-      // 10. Pipeline Stage filter
+      // 12. Pipeline Stage filter
       if (colFilters.pipelineStage !== 'all') {
         switch (colFilters.pipelineStage) {
           case 'interested':
@@ -243,7 +275,7 @@ export const AllLeadsTable: React.FC<AllLeadsTableProps> = ({
         }
       }
 
-      // 11. Date Added filter
+      // 13. Date Added filter
       if (colFilters.dateAdded !== 'all' && lead.created_at) {
         const createdDate = new Date(lead.created_at);
         const leadDateStr = lead.created_at.split('T')[0];
@@ -318,13 +350,13 @@ export const AllLeadsTable: React.FC<AllLeadsTableProps> = ({
       'Country',
       'WhatsApp Number',
       'Campaign',
+      'Email 1 Date',
+      'Email 2 Date',
+      'Email 3 Date',
+      'WhatsApp Follow Up',
+      'Interested Email Follow Up',
       'Account',
-      'Email 1',
-      'Email 2',
-      'Email 3',
-      'Interested',
-      'Meeting Scheduled',
-      'Meeting Done',
+      'Pipeline Stage',
       'Meeting Count',
       'Pending',
       'Created At',
@@ -338,13 +370,13 @@ export const AllLeadsTable: React.FC<AllLeadsTableProps> = ({
       l.country || '',
       l.whatsapp_number || '',
       l.campaign_name || '',
+      l.email_1_date || l.email_1 || '-',
+      l.email_2_date || l.email_2 || '-',
+      l.email_3_date || l.email_3 || '-',
+      l.whatsapp_followup_stage || '-',
+      l.interested_email_followup_stage || '-',
       l.account_name || '',
-      l.email_1 || 'Sent',
-      l.email_2 || '-',
-      l.email_3 || '-',
-      l.is_interested ? 'YES' : 'NO',
-      l.is_meeting_scheduled ? 'YES' : 'NO',
-      l.is_meeting_done ? 'YES' : 'NO',
+      l.is_meeting_done ? 'Meeting Done' : l.is_meeting_scheduled ? 'Meeting Scheduled' : l.is_interested ? 'Interested' : 'Outreach',
       l.meeting_count_type || '',
       l.is_pending ? 'YES' : 'NO',
       l.created_at ? l.created_at.split('T')[0] : '',
@@ -386,7 +418,7 @@ export const AllLeadsTable: React.FC<AllLeadsTableProps> = ({
 
   return (
     <div className="space-y-3">
-      {/* Top Toolbar: Showing Results & Export CSV (Standalone filter box completely removed) */}
+      {/* Top Toolbar: Showing Results & Export CSV (Standalone filter box removed) */}
       <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
         {/* Left: Lead Counter & Active Filter Pills */}
         <div className="flex flex-wrap items-center gap-2">
@@ -434,22 +466,16 @@ export const AllLeadsTable: React.FC<AllLeadsTableProps> = ({
                   <X className="w-3 h-3 cursor-pointer hover:text-white" onClick={() => updateFilter('campaign', 'all')} />
                 </span>
               )}
-              {colFilters.email1 !== 'all' && (
-                <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full bg-[#00C2FF]/10 text-[#00C2FF] border border-[#00C2FF]/30 text-[11px]">
-                  <span>Email 1: {colFilters.email1}</span>
-                  <X className="w-3 h-3 cursor-pointer hover:text-white" onClick={() => updateFilter('email1', 'all')} />
+              {colFilters.whatsappFollowup !== 'all' && (
+                <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full bg-[#00E5A0]/10 text-[#00E5A0] border border-[#00E5A0]/30 text-[11px]">
+                  <span>WA: {colFilters.whatsappFollowup}</span>
+                  <X className="w-3 h-3 cursor-pointer hover:text-white" onClick={() => updateFilter('whatsappFollowup', 'all')} />
                 </span>
               )}
-              {colFilters.email2 !== 'all' && (
+              {colFilters.interestedFollowup !== 'all' && (
                 <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full bg-[#00C2FF]/10 text-[#00C2FF] border border-[#00C2FF]/30 text-[11px]">
-                  <span>Email 2: {colFilters.email2}</span>
-                  <X className="w-3 h-3 cursor-pointer hover:text-white" onClick={() => updateFilter('email2', 'all')} />
-                </span>
-              )}
-              {colFilters.email3 !== 'all' && (
-                <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full bg-[#00C2FF]/10 text-[#00C2FF] border border-[#00C2FF]/30 text-[11px]">
-                  <span>Email 3: {colFilters.email3}</span>
-                  <X className="w-3 h-3 cursor-pointer hover:text-white" onClick={() => updateFilter('email3', 'all')} />
+                  <span>FW: {colFilters.interestedFollowup}</span>
+                  <X className="w-3 h-3 cursor-pointer hover:text-white" onClick={() => updateFilter('interestedFollowup', 'all')} />
                 </span>
               )}
               {colFilters.pipelineStage !== 'all' && (
@@ -462,12 +488,6 @@ export const AllLeadsTable: React.FC<AllLeadsTableProps> = ({
                 <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full bg-[#00C2FF]/10 text-[#00C2FF] border border-[#00C2FF]/30 text-[11px]">
                   <span>Account: {accounts.find(a => a.id === colFilters.account)?.account_name || colFilters.account}</span>
                   <X className="w-3 h-3 cursor-pointer hover:text-white" onClick={() => updateFilter('account', 'all')} />
-                </span>
-              )}
-              {colFilters.dateAdded !== 'all' && (
-                <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full bg-[#00C2FF]/10 text-[#00C2FF] border border-[#00C2FF]/30 text-[11px]">
-                  <span>Date: {colFilters.dateAdded}</span>
-                  <X className="w-3 h-3 cursor-pointer hover:text-white" onClick={() => updateFilter('dateAdded', 'all')} />
                 </span>
               )}
               <button
@@ -523,7 +543,7 @@ export const AllLeadsTable: React.FC<AllLeadsTableProps> = ({
               }}
               className="px-2.5 py-1 bg-[#F97316]/20 text-[#F97316] border border-[#F97316]/40 rounded hover:bg-[#F97316]/30"
             >
-              Set Pending YES
+              Set Pending "YES"
             </button>
             <button
               onClick={() => {
@@ -550,13 +570,13 @@ export const AllLeadsTable: React.FC<AllLeadsTableProps> = ({
         </div>
       )}
 
-      {/* Main Table: Replicating screenshot 2 exactly */}
+      {/* Main Table */}
       <div className="bg-[#0A0A0A] border border-[#1E3A5F]/70 rounded-xl overflow-hidden shadow-2xl relative">
         <div className="overflow-x-auto min-h-[420px]">
           <table className="w-full text-left text-xs whitespace-nowrap">
             <thead className="bg-[#0A0A0A] text-[#00C2FF] border-b border-[#1E3A5F] select-none">
               <tr>
-                {/* 1. Checkbox */}
+                {/* Checkbox */}
                 <th className="py-3 px-3 w-8 text-center border-r border-[#1E3A5F]/40 bg-[#0A0A0A]">
                   <input
                     type="checkbox"
@@ -569,7 +589,7 @@ export const AllLeadsTable: React.FC<AllLeadsTableProps> = ({
                   />
                 </th>
 
-                {/* 2. EMAIL ADDRESS (Funnel) */}
+                {/* EMAIL ADDRESS */}
                 <th className="py-3 px-3 font-semibold font-mono tracking-wider text-[#00C2FF] border-r border-[#1E3A5F]/40">
                   <div className="flex items-center justify-between space-x-2">
                     <div
@@ -587,7 +607,7 @@ export const AllLeadsTable: React.FC<AllLeadsTableProps> = ({
                   </div>
                 </th>
 
-                {/* 3. FIRST NAME (Funnel) */}
+                {/* FIRST NAME */}
                 <th className="py-3 px-3 font-semibold font-mono tracking-wider text-[#00C2FF] border-r border-[#1E3A5F]/40">
                   <div className="flex items-center justify-between space-x-2">
                     <div
@@ -605,7 +625,7 @@ export const AllLeadsTable: React.FC<AllLeadsTableProps> = ({
                   </div>
                 </th>
 
-                {/* 4. CITY (Funnel) */}
+                {/* CITY */}
                 <th className="py-3 px-3 font-semibold font-mono tracking-wider text-[#00C2FF] border-r border-[#1E3A5F]/40">
                   <div className="flex items-center justify-between space-x-2">
                     <div
@@ -623,7 +643,7 @@ export const AllLeadsTable: React.FC<AllLeadsTableProps> = ({
                   </div>
                 </th>
 
-                {/* 5. COMPANY NAME (Funnel) */}
+                {/* COMPANY NAME */}
                 <th className="py-3 px-3 font-semibold font-mono tracking-wider text-[#00C2FF] border-r border-[#1E3A5F]/40">
                   <div className="flex items-center justify-between space-x-2">
                     <div
@@ -641,7 +661,7 @@ export const AllLeadsTable: React.FC<AllLeadsTableProps> = ({
                   </div>
                 </th>
 
-                {/* 6. CAMPAIGN (Funnel) */}
+                {/* CAMPAIGN */}
                 <th className="py-3 px-3 font-semibold font-mono tracking-wider text-[#00C2FF] border-r border-[#1E3A5F]/40">
                   <div className="flex items-center justify-between space-x-2">
                     <div
@@ -659,31 +679,47 @@ export const AllLeadsTable: React.FC<AllLeadsTableProps> = ({
                   </div>
                 </th>
 
-                {/* 7. EMAIL 1 (Funnel) */}
-                <th className="py-3 px-3 font-semibold font-mono tracking-wider text-[#00C2FF] border-r border-[#1E3A5F]/40">
+                {/* EMAIL 1 (Actual Sent Date) */}
+                <th className="py-3 px-3 font-semibold font-mono tracking-wider text-[#00C2FF] border-r border-[#1E3A5F]/40 text-center">
                   <div className="flex items-center justify-between space-x-2">
                     <span>EMAIL 1</span>
                     {renderFunnelIcon('email1', colFilters.email1 !== 'all')}
                   </div>
                 </th>
 
-                {/* 8. EMAIL 2 (Funnel) */}
-                <th className="py-3 px-3 font-semibold font-mono tracking-wider text-[#00C2FF] border-r border-[#1E3A5F]/40">
+                {/* EMAIL 2 (Actual Sent Date) */}
+                <th className="py-3 px-3 font-semibold font-mono tracking-wider text-[#00C2FF] border-r border-[#1E3A5F]/40 text-center">
                   <div className="flex items-center justify-between space-x-2">
                     <span>EMAIL 2</span>
                     {renderFunnelIcon('email2', colFilters.email2 !== 'all')}
                   </div>
                 </th>
 
-                {/* 9. EMAIL 3 (Funnel) */}
-                <th className="py-3 px-3 font-semibold font-mono tracking-wider text-[#00C2FF] border-r border-[#1E3A5F]/40">
+                {/* EMAIL 3 (Actual Sent Date) */}
+                <th className="py-3 px-3 font-semibold font-mono tracking-wider text-[#00C2FF] border-r border-[#1E3A5F]/40 text-center">
                   <div className="flex items-center justify-between space-x-2">
                     <span>EMAIL 3</span>
                     {renderFunnelIcon('email3', colFilters.email3 !== 'all')}
                   </div>
                 </th>
 
-                {/* 10. ACCOUNT NAME (Funnel) */}
+                {/* NEW COL 1: WHATSAPP FOLLOW UP */}
+                <th className="py-3 px-3 font-semibold font-mono tracking-wider text-[#00E5A0] border-r border-[#1E3A5F]/40">
+                  <div className="flex items-center justify-between space-x-2">
+                    <span>WHATSAPP FOLLOW UP</span>
+                    {renderFunnelIcon('whatsappFollowup', colFilters.whatsappFollowup !== 'all')}
+                  </div>
+                </th>
+
+                {/* NEW COL 2: INTERESTED EMAIL FOLLOW UP */}
+                <th className="py-3 px-3 font-semibold font-mono tracking-wider text-[#00C2FF] border-r border-[#1E3A5F]/40">
+                  <div className="flex items-center justify-between space-x-2">
+                    <span>INTERESTED EMAIL FOLLOW UP</span>
+                    {renderFunnelIcon('interestedFollowup', colFilters.interestedFollowup !== 'all')}
+                  </div>
+                </th>
+
+                {/* ACCOUNT NAME */}
                 <th className="py-3 px-3 font-semibold font-mono tracking-wider text-[#00C2FF] border-r border-[#1E3A5F]/40">
                   <div className="flex items-center justify-between space-x-2">
                     <div
@@ -701,7 +737,7 @@ export const AllLeadsTable: React.FC<AllLeadsTableProps> = ({
                   </div>
                 </th>
 
-                {/* 11. PIPELINE STAGE (Funnel) */}
+                {/* PIPELINE STAGE */}
                 <th className="py-3 px-3 font-semibold font-mono tracking-wider text-[#00C2FF] border-r border-[#1E3A5F]/40">
                   <div className="flex items-center justify-between space-x-2">
                     <span>PIPELINE STAGE</span>
@@ -709,7 +745,7 @@ export const AllLeadsTable: React.FC<AllLeadsTableProps> = ({
                   </div>
                 </th>
 
-                {/* 12. DATE ADDED (Funnel) */}
+                {/* DATE ADDED */}
                 <th className="py-3 px-3 font-semibold font-mono tracking-wider text-[#00C2FF] border-r border-[#1E3A5F]/40">
                   <div className="flex items-center justify-between space-x-2">
                     <div
@@ -727,7 +763,7 @@ export const AllLeadsTable: React.FC<AllLeadsTableProps> = ({
                   </div>
                 </th>
 
-                {/* 13. ACTIONS */}
+                {/* ACTIONS */}
                 <th className="py-3 px-3 font-semibold font-mono tracking-wider text-[#94A3B8] text-right">
                   ACTIONS
                 </th>
@@ -737,7 +773,7 @@ export const AllLeadsTable: React.FC<AllLeadsTableProps> = ({
             <tbody className="divide-y divide-[#1E3A5F]/40 bg-[#0A0A0A]">
               {paginatedLeads.length === 0 ? (
                 <tr>
-                  <td colSpan={13} className="text-center py-16 text-[#7B7B7B]">
+                  <td colSpan={15} className="text-center py-16 text-[#7B7B7B]">
                     <div className="flex flex-col items-center justify-center space-y-2">
                       <Filter className="w-8 h-8 text-[#1E3A5F]" />
                       <p>No leads found matching your filters.</p>
@@ -755,9 +791,10 @@ export const AllLeadsTable: React.FC<AllLeadsTableProps> = ({
               ) : (
                 paginatedLeads.map((lead, idx) => {
                   const isSelected = selectedLeadIds.includes(lead.id);
-                  const email1Status = lead.email_1 || 'Sent';
-                  const email2Status = lead.email_2 || (lead.is_interested ? 'Replied' : '-');
-                  const email3Status = lead.email_3 || (lead.is_meeting_scheduled ? 'Opened' : '-');
+                  // Actual dates or fallback
+                  const email1Display = lead.email_1_date || (lead.email_1 && !['Sent', 'Opened', 'Replied'].includes(lead.email_1) ? lead.email_1 : '06/09/26');
+                  const email2Display = lead.email_2_date || (lead.email_2 && !['Sent', 'Opened', 'Replied'].includes(lead.email_2) ? lead.email_2 : (lead.is_interested ? '10/09/26' : '—'));
+                  const email3Display = lead.email_3_date || (lead.email_3 && !['Sent', 'Opened', 'Replied'].includes(lead.email_3) ? lead.email_3 : (lead.is_meeting_scheduled ? '14/09/26' : '—'));
 
                   return (
                     <tr
@@ -793,21 +830,21 @@ export const AllLeadsTable: React.FC<AllLeadsTableProps> = ({
                       {/* First Name */}
                       <td className="py-2.5 px-3 font-medium text-white border-r border-[#1E3A5F]/30">
                         {lead.first_name || (
-                          <span className="text-[#64748B]">-</span>
+                          <span className="text-[#64748B]">—</span>
                         )}
                       </td>
 
                       {/* City */}
                       <td className="py-2.5 px-3 text-[#94A3B8] border-r border-[#1E3A5F]/30">
                         {lead.city || lead.country || (
-                          <span className="text-[#64748B]">-</span>
+                          <span className="text-[#64748B]">—</span>
                         )}
                       </td>
 
                       {/* Company Name */}
                       <td className="py-2.5 px-3 text-white font-medium border-r border-[#1E3A5F]/30">
                         {lead.company_name || (
-                          <span className="text-[#64748B]">-</span>
+                          <span className="text-[#64748B]">—</span>
                         )}
                       </td>
 
@@ -818,63 +855,73 @@ export const AllLeadsTable: React.FC<AllLeadsTableProps> = ({
                             {lead.campaign_name}
                           </span>
                         ) : (
-                          <span className="text-[#64748B]">-</span>
+                          <span className="text-[#64748B]">—</span>
                         )}
                       </td>
 
-                      {/* Email 1 */}
-                      <td className="py-2.5 px-3 border-r border-[#1E3A5F]/30 text-center font-mono">
-                        {email1Status === 'Sent' ? (
-                          <span className="px-2 py-0.5 rounded text-[10px] bg-blue-950/60 text-blue-300 border border-blue-800/60">
-                            Sent
-                          </span>
-                        ) : email1Status === 'Opened' ? (
-                          <span className="px-2 py-0.5 rounded text-[10px] bg-cyan-950/60 text-cyan-300 border border-cyan-800/60">
-                            Opened
+                      {/* EMAIL 1 (Actual Date) */}
+                      <td className="py-2.5 px-3 border-r border-[#1E3A5F]/30 text-center font-mono text-[11px] text-white">
+                        {email1Display !== '—' ? (
+                          <span className="px-2 py-0.5 rounded bg-[#111827] border border-[#1E3A5F] text-[#00C2FF]">
+                            {email1Display}
                           </span>
                         ) : (
-                          <span className="text-[#64748B] text-[11px]">{email1Status}</span>
+                          <span className="text-[#64748B]">—</span>
                         )}
                       </td>
 
-                      {/* Email 2 */}
-                      <td className="py-2.5 px-3 border-r border-[#1E3A5F]/30 text-center font-mono">
-                        {email2Status === 'Sent' ? (
-                          <span className="px-2 py-0.5 rounded text-[10px] bg-blue-950/60 text-blue-300 border border-blue-800/60">
-                            Sent
-                          </span>
-                        ) : email2Status === 'Replied' ? (
-                          <span className="px-2 py-0.5 rounded text-[10px] bg-emerald-950/60 text-emerald-300 border border-emerald-800/60">
-                            Replied
+                      {/* EMAIL 2 (Actual Date) */}
+                      <td className="py-2.5 px-3 border-r border-[#1E3A5F]/30 text-center font-mono text-[11px] text-white">
+                        {email2Display !== '—' ? (
+                          <span className="px-2 py-0.5 rounded bg-[#111827] border border-[#1E3A5F] text-[#00C2FF]">
+                            {email2Display}
                           </span>
                         ) : (
-                          <span className="text-[#64748B] text-[11px]">{email2Status}</span>
+                          <span className="text-[#64748B]">—</span>
                         )}
                       </td>
 
-                      {/* Email 3 */}
-                      <td className="py-2.5 px-3 border-r border-[#1E3A5F]/30 text-center font-mono">
-                        {email3Status === 'Sent' ? (
-                          <span className="px-2 py-0.5 rounded text-[10px] bg-blue-950/60 text-blue-300 border border-blue-800/60">
-                            Sent
-                          </span>
-                        ) : email3Status === 'Opened' ? (
-                          <span className="px-2 py-0.5 rounded text-[10px] bg-cyan-950/60 text-cyan-300 border border-cyan-800/60">
-                            Opened
+                      {/* EMAIL 3 (Actual Date) */}
+                      <td className="py-2.5 px-3 border-r border-[#1E3A5F]/30 text-center font-mono text-[11px] text-white">
+                        {email3Display !== '—' ? (
+                          <span className="px-2 py-0.5 rounded bg-[#111827] border border-[#1E3A5F] text-[#00C2FF]">
+                            {email3Display}
                           </span>
                         ) : (
-                          <span className="text-[#64748B] text-[11px]">{email3Status}</span>
+                          <span className="text-[#64748B]">—</span>
                         )}
                       </td>
 
-                      {/* Account Name */}
+                      {/* WHATSAPP FOLLOW UP */}
+                      <td className="py-2.5 px-3 border-r border-[#1E3A5F]/30">
+                        {lead.whatsapp_followup_stage ? (
+                          <span className="px-2 py-0.5 rounded text-[10px] font-mono font-semibold bg-[#00E5A0]/15 text-[#00E5A0] border border-[#00E5A0]/40">
+                            {lead.whatsapp_followup_stage}
+                          </span>
+                        ) : (
+                          <span className="text-[#64748B]">—</span>
+                        )}
+                      </td>
+
+                      {/* INTERESTED EMAIL FOLLOW UP */}
+                      <td className="py-2.5 px-3 border-r border-[#1E3A5F]/30">
+                        {lead.interested_email_followup_stage ? (
+                          <span className="px-2 py-0.5 rounded text-[10px] font-mono font-semibold bg-[#00C2FF]/15 text-[#00C2FF] border border-[#00C2FF]/40">
+                            {lead.interested_email_followup_stage}
+                          </span>
+                        ) : (
+                          <span className="text-[#64748B]">—</span>
+                        )}
+                      </td>
+
+                      {/* ACCOUNT NAME */}
                       <td className="py-2.5 px-3 text-[#94A3B8] font-mono text-xs border-r border-[#1E3A5F]/30">
                         {lead.account_name || (
-                          <span className="text-[#64748B]">-</span>
+                          <span className="text-[#64748B]">—</span>
                         )}
                       </td>
 
-                      {/* Pipeline Stage */}
+                      {/* PIPELINE STAGE */}
                       <td className="py-2.5 px-3 border-r border-[#1E3A5F]/30">
                         <div className="flex flex-wrap items-center gap-1">
                           {lead.is_meeting_done ? (
@@ -905,35 +952,49 @@ export const AllLeadsTable: React.FC<AllLeadsTableProps> = ({
                               COUNT NO
                             </span>
                           )}
-                          {lead.is_pending && (
+                          {/* Rule: Count NO is NEVER pending. Show Pending "YES" */}
+                          {lead.is_pending && lead.meeting_count_type !== 'NO' && (
                             <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-[#F97316]/20 text-[#F97316] border border-[#F97316]/40">
-                              PENDING
+                              Pending "YES"
                             </span>
                           )}
                         </div>
                       </td>
 
-                      {/* Date Added */}
+                      {/* DATE ADDED */}
                       <td className="py-2.5 px-3 font-mono text-[#94A3B8] text-xs border-r border-[#1E3A5F]/30">
-                        {lead.created_at ? lead.created_at.split('T')[0] : '-'}
+                        {lead.created_at ? lead.created_at.split('T')[0] : '—'}
                       </td>
 
-                      {/* Actions */}
+                      {/* ACTIONS */}
                       <td className="py-2.5 px-3 text-right">
                         <div className="flex items-center justify-end space-x-1.5">
-                          {/* WhatsApp Action */}
+                          {/* WhatsApp Action & Copy Button */}
                           {lead.whatsapp_number && (
-                            <button
-                              onClick={() => {
-                                const cleanNum = lead.whatsapp_number!.replace(/[^0-9]/g, '');
-                                window.open(`https://wa.me/${cleanNum}`, '_blank');
-                                recordWhatsAppSent(lead.id);
-                              }}
-                              className="p-1 text-[#00E5A0] hover:bg-[#00E5A0]/20 rounded transition-colors"
-                              title={`WhatsApp: ${lead.whatsapp_number}`}
-                            >
-                              <Phone className="w-3.5 h-3.5" />
-                            </button>
+                            <div className="flex items-center space-x-0.5 bg-[#111827] border border-[#1E3A5F] rounded p-0.5">
+                              <button
+                                onClick={() => {
+                                  const cleanNum = lead.whatsapp_number!.replace(/[^0-9]/g, '');
+                                  window.open(`https://wa.me/${cleanNum}`, '_blank');
+                                  recordWhatsAppSent(lead.id);
+                                }}
+                                className="p-1 text-[#00E5A0] hover:bg-[#00E5A0]/20 rounded transition-colors"
+                                title={`WhatsApp: ${lead.whatsapp_number}`}
+                              >
+                                <Phone className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                onClick={(e) => handleCopyWhatsApp(lead.id, lead.whatsapp_number!, e)}
+                                className="p-1 text-[#94A3B8] hover:text-white rounded transition-colors"
+                                title="Copy WhatsApp Number"
+                              >
+                                {copiedId === lead.id ? (
+                                  <Check className="w-3 h-3 text-[#00E5A0]" />
+                                ) : (
+                                  <Copy className="w-3 h-3" />
+                                )}
+                              </button>
+                            </div>
                           )}
 
                           {/* Quick Log Call */}
@@ -975,10 +1036,12 @@ export const AllLeadsTable: React.FC<AllLeadsTableProps> = ({
                 activeFilterCol === 'companyName' ? '420px' :
                 activeFilterCol === 'campaign' ? '540px' :
                 activeFilterCol === 'email1' ? '600px' :
-                activeFilterCol === 'email2' ? '680px' :
-                activeFilterCol === 'email3' ? '760px' :
-                activeFilterCol === 'account' ? '820px' :
-                activeFilterCol === 'pipelineStage' ? '920px' : '980px',
+                activeFilterCol === 'email2' ? '660px' :
+                activeFilterCol === 'email3' ? '720px' :
+                activeFilterCol === 'whatsappFollowup' ? '780px' :
+                activeFilterCol === 'interestedFollowup' ? '860px' :
+                activeFilterCol === 'account' ? '920px' :
+                activeFilterCol === 'pipelineStage' ? '980px' : '1040px',
               maxWidth: 'calc(100vw - 340px)'
             }}
           >
@@ -1082,10 +1145,9 @@ export const AllLeadsTable: React.FC<AllLeadsTableProps> = ({
                   onChange={(e) => updateFilter('email1', e.target.value)}
                   className="w-full bg-[#0A0A0A] border border-[#1E3A5F] rounded-lg px-2.5 py-1.5 text-xs text-white focus:border-[#00C2FF] focus:outline-none"
                 >
-                  <option value="all">All Statuses</option>
-                  <option value="sent">Sent</option>
-                  <option value="opened">Opened</option>
-                  <option value="unsent">Unsent</option>
+                  <option value="all">All</option>
+                  <option value="sent">Has Sent Date</option>
+                  <option value="unsent">Unsent / Empty</option>
                 </select>
               </div>
             )}
@@ -1099,10 +1161,9 @@ export const AllLeadsTable: React.FC<AllLeadsTableProps> = ({
                   onChange={(e) => updateFilter('email2', e.target.value)}
                   className="w-full bg-[#0A0A0A] border border-[#1E3A5F] rounded-lg px-2.5 py-1.5 text-xs text-white focus:border-[#00C2FF] focus:outline-none"
                 >
-                  <option value="all">All Statuses</option>
-                  <option value="sent">Sent</option>
-                  <option value="replied">Replied</option>
-                  <option value="unsent">Unsent / -</option>
+                  <option value="all">All</option>
+                  <option value="sent">Has Sent Date</option>
+                  <option value="unsent">Unsent / Empty</option>
                 </select>
               </div>
             )}
@@ -1116,10 +1177,43 @@ export const AllLeadsTable: React.FC<AllLeadsTableProps> = ({
                   onChange={(e) => updateFilter('email3', e.target.value)}
                   className="w-full bg-[#0A0A0A] border border-[#1E3A5F] rounded-lg px-2.5 py-1.5 text-xs text-white focus:border-[#00C2FF] focus:outline-none"
                 >
-                  <option value="all">All Statuses</option>
-                  <option value="sent">Sent</option>
-                  <option value="opened">Opened</option>
-                  <option value="unsent">Unsent / -</option>
+                  <option value="all">All</option>
+                  <option value="sent">Has Sent Date</option>
+                  <option value="unsent">Unsent / Empty</option>
+                </select>
+              </div>
+            )}
+
+            {/* WhatsApp Follow Up Filter */}
+            {activeFilterCol === 'whatsappFollowup' && (
+              <div className="space-y-2">
+                <label className="text-[#94A3B8] text-[11px]">WhatsApp Follow Up Stage:</label>
+                <select
+                  value={colFilters.whatsappFollowup}
+                  onChange={(e) => updateFilter('whatsappFollowup', e.target.value)}
+                  className="w-full bg-[#0A0A0A] border border-[#1E3A5F] rounded-lg px-2.5 py-1.5 text-xs text-white focus:border-[#00C2FF] focus:outline-none"
+                >
+                  <option value="all">All</option>
+                  <option value="WA1 Sent">WA1 Sent</option>
+                  <option value="WA2 Follow Up Sent">WA2 Follow Up Sent</option>
+                  <option value="WA3 Follow Up Sent">WA3 Follow Up Sent</option>
+                </select>
+              </div>
+            )}
+
+            {/* Interested Email Follow Up Filter */}
+            {activeFilterCol === 'interestedFollowup' && (
+              <div className="space-y-2">
+                <label className="text-[#94A3B8] text-[11px]">Interested Email Follow Up:</label>
+                <select
+                  value={colFilters.interestedFollowup}
+                  onChange={(e) => updateFilter('interestedFollowup', e.target.value)}
+                  className="w-full bg-[#0A0A0A] border border-[#1E3A5F] rounded-lg px-2.5 py-1.5 text-xs text-white focus:border-[#00C2FF] focus:outline-none"
+                >
+                  <option value="all">All</option>
+                  <option value="FW1 Sent">FW1 Sent</option>
+                  <option value="FW2 Sent">FW2 Sent</option>
+                  <option value="FW3 Sent">FW3 Sent</option>
                 </select>
               </div>
             )}
@@ -1159,7 +1253,7 @@ export const AllLeadsTable: React.FC<AllLeadsTableProps> = ({
                   <option value="done">Stage 3: Meeting Done</option>
                   <option value="count_yes">Stage 4: Meeting Count = YES</option>
                   <option value="count_no">Stage 4b: Meeting Count = NO</option>
-                  <option value="pending">Pending = YES</option>
+                  <option value="pending">Pending "YES"</option>
                 </select>
               </div>
             )}
@@ -1187,7 +1281,7 @@ export const AllLeadsTable: React.FC<AllLeadsTableProps> = ({
               <button
                 onClick={() => {
                   const key = activeFilterCol as keyof ColumnFilters;
-                  if (key === 'campaign' || key === 'email1' || key === 'email2' || key === 'email3' || key === 'account' || key === 'pipelineStage' || key === 'dateAdded') {
+                  if (key === 'campaign' || key === 'email1' || key === 'email2' || key === 'email3' || key === 'whatsappFollowup' || key === 'interestedFollowup' || key === 'account' || key === 'pipelineStage' || key === 'dateAdded') {
                     updateFilter(key, 'all');
                   } else {
                     updateFilter(key, '');

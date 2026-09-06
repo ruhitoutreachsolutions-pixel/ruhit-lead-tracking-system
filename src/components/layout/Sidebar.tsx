@@ -11,7 +11,8 @@ import {
   MailCheck,
   Settings,
   Sparkles,
-  LogOut
+  LogOut,
+  Globe
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useLeads } from '../../context/LeadContext';
@@ -23,6 +24,7 @@ export type NavTab =
   | 'mailmerge'
   | 'reports'
   | 'reminders'
+  | 'timezone'
   | 'campaigns'
   | 'brands'
   | 'accounts'
@@ -45,6 +47,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onSelectTab }) => 
     { id: 'meetings', label: 'Meetings Kanban', icon: <CalendarCheck2 className="w-4 h-4" /> },
     { id: 'mailmerge', label: 'Mail Merge', icon: <SendHorizontal className="w-4 h-4" /> },
     { id: 'reports', label: 'Reports', icon: <BarChart3 className="w-4 h-4" /> },
+    { id: 'timezone', label: 'Time Converter', icon: <Globe className="w-4 h-4" /> },
     { id: 'reminders', label: 'Reminders', icon: <Clock className="w-4 h-4" />, badge: pendingRemindersCount > 0 ? pendingRemindersCount : undefined },
     { id: 'campaigns', label: 'Campaigns', icon: <Flag className="w-4 h-4" /> },
     { id: 'brands', label: 'Brands', icon: <Building2 className="w-4 h-4" /> },

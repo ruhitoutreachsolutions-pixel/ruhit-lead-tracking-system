@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, Calendar, Clock, Video, FileText } from 'lucide-react';
 import { useLeads } from '../../context/LeadContext';
+import { formatTo12Hour } from '../../lib/formatTime';
 
 interface ScheduleMeetingModalProps {
   leadId: string | null;
@@ -92,7 +93,10 @@ export const ScheduleMeetingModal: React.FC<ScheduleMeetingModalProps> = ({
             </div>
 
             <div>
-              <label className="block text-[#94A3B8] font-medium mb-1">Meeting Time (Asia/Dhaka)</label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-[#94A3B8] font-medium">Meeting Time</label>
+                <span className="text-[#00C2FF] font-mono font-bold text-xs">{formatTo12Hour(time)}</span>
+              </div>
               <input
                 type="time"
                 required

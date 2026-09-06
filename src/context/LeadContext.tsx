@@ -455,6 +455,11 @@ export const LeadProvider: React.FC<{ children: React.ReactNode }> = ({ children
       meeting_count_type: type,
       meeting_count_at: now,
     };
+    // Rule: Count NO is NEVER pending
+    if (type === 'NO') {
+      updates.is_pending = false;
+      updates.pending_at = null;
+    }
 
     await updateLead(leadId, updates, 'Meeting Count set to ' + type);
 
@@ -488,6 +493,12 @@ export const LeadProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const togglePending = async (leadId: string, isPending: boolean, note?: string): Promise<void> => {
+    const lead = leads.find((l) => l.id === leadId);
+    // Rule: Count NO leads can NEVER be pending
+    if (isPending && lead?.meeting_count_type === 'NO') {
+      return;
+    }
+
     const now = new Date().toISOString();
     const updates: Partial<Lead> = {
       is_pending: isPending,

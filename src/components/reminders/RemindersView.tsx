@@ -14,6 +14,7 @@ import {
 import { useLeads } from '../../context/LeadContext';
 import { useAuth } from '../../context/AuthContext';
 import { Reminder } from '../../types';
+import { formatTo12Hour } from '../../lib/formatTime';
 
 interface RemindersViewProps {
   onSelectLead: (leadId: string) => void;
@@ -267,7 +268,7 @@ export const RemindersView: React.FC<RemindersViewProps> = ({ onSelectLead }) =>
                       </span>
                       {rem.lead_company && <span>? {rem.lead_company}</span>}
                       <span className="font-mono text-[11px] text-[#7B7B7B]">
-                        ?? {rem.reminder_date} at {rem.reminder_time}
+                        📅 {rem.reminder_date} at {formatTo12Hour(rem.reminder_time)}
                       </span>
                     </div>
                   </div>

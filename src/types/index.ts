@@ -45,6 +45,9 @@ export interface Campaign {
 export type Priority = 'Low' | 'Medium' | 'High' | 'DNC';
 export type MeetingCountType = 'YES' | 'NO' | null;
 
+export type WhatsAppFollowUpStage = 'WA1 Sent' | 'WA2 Follow Up Sent' | 'WA3 Follow Up Sent' | null;
+export type InterestedEmailFollowUpStage = 'FW1 Sent' | 'FW2 Sent' | 'FW3 Sent' | null;
+
 export interface Lead {
   id: string;
   email: string;
@@ -63,6 +66,11 @@ export interface Lead {
   email_1?: string;
   email_2?: string;
   email_3?: string;
+  email_1_date?: string | null;
+  email_2_date?: string | null;
+  email_3_date?: string | null;
+  whatsapp_followup_stage?: WhatsAppFollowUpStage;
+  interested_email_followup_stage?: InterestedEmailFollowUpStage;
   brand_id?: string;
   brand_name?: string;
   account_id?: string;

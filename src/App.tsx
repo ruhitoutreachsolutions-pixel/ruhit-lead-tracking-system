@@ -9,6 +9,7 @@ import { MeetingsKanban } from './components/meetings/MeetingsKanban';
 import { MailMergeDispatcher } from './components/mailmerge/MailMergeDispatcher';
 import { ReportsView } from './components/reports/ReportsView';
 import { RemindersView } from './components/reminders/RemindersView';
+import { TimeZoneConverterView } from './components/timezone/TimeZoneConverterView';
 import { SettingsView } from './components/settings/SettingsView';
 import { AddLeadModal } from './components/leads/AddLeadModal';
 import { LeadImportModal } from './components/leads/LeadImportModal';
@@ -80,6 +81,8 @@ const AppContent: React.FC = () => {
                 onSelectLead={(id) => setSelectedLeadId(id)}
               />
             )}
+
+            {currentTab === 'timezone' && <TimeZoneConverterView />}
 
             {(currentTab === 'settings' ||
               currentTab === 'campaigns' ||
