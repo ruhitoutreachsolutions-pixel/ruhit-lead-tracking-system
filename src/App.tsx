@@ -31,6 +31,7 @@ const AppContent: React.FC = () => {
   const [isUserManagementOpen, setIsUserManagementOpen] = useState(false);
   const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
   const [scheduleMeetingLeadId, setScheduleMeetingLeadId] = useState<string | null>(null);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   // If unauthenticated, show the Login View directly
   if (!isAuthenticated) {
@@ -52,6 +53,8 @@ const AppContent: React.FC = () => {
           setSearchQuery('');
         }}
         onOpenUserManagement={() => setIsUserManagementOpen(true)}
+        isMobileOpen={isMobileMenuOpen}
+        onCloseMobile={() => setIsMobileMenuOpen(false)}
       />
 
       {/* Main Content Viewport */}
@@ -64,11 +67,12 @@ const AppContent: React.FC = () => {
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
           onSelectLead={(id) => setSelectedLeadId(id)}
+          onToggleMobileMenu={() => setIsMobileMenuOpen((prev) => !prev)}
         />
 
-        {/* Viewport Body */}
-        <main className="flex-1 overflow-y-auto p-6">
-          <div className="max-w-7xl mx-auto space-y-6">
+        {/* Viewport Body - Expands fully across wide monitors and mobile screens */}
+        <main className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6">
+          <div className="w-full min-w-0 space-y-6">
             {currentTab === 'dashboard' && <DashboardView />}
 
             {currentTab === 'leads' && (

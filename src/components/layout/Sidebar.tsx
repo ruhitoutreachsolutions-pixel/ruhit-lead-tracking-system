@@ -12,7 +12,8 @@ import {
   LogOut,
   Globe,
   UserCheck,
-  ShieldAlert
+  ShieldAlert,
+  X
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useLeads } from '../../context/LeadContext';
@@ -32,9 +33,17 @@ interface SidebarProps {
   currentTab: NavTab;
   onSelectTab: (tab: NavTab) => void;
   onOpenUserManagement?: () => void;
+  isMobileOpen?: boolean;
+  onCloseMobile?: () => void;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onSelectTab, onOpenUserManagement }) => {
+export const Sidebar: React.FC<SidebarProps> = ({
+  currentTab,
+  onSelectTab,
+  onOpenUserManagement,
+  isMobileOpen,
+  onCloseMobile
+}) => {
   const { currentUser, role, permissions, logout } = useAuth();
   const { leads, reminders, cloudStatus } = useLeads();
 
@@ -57,8 +66,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onSelectTab, onOpe
   const displayName = currentUser?.full_name || currentUser?.username || 'Ruhit (Owner)';
   const displayRole = role === 'admin' ? 'Owner / Admin' : role.toUpperCase();
 
-  return (
-    <aside className="w-64 bg-[#0A0A0A] border-r border-[#1E3A5F]/60 flex flex-col h-screen select-none shrink-0">
+  const renderSidebarContent = (isMobile: boolean) => (
+    <div className="flex flex-col h-full">
       {/* Brand Header */}
       <div className="p-5 border-b border-[#1E3A5F]/50 flex items-center justify-between">
         <div className="flex items-center space-x-3">
@@ -75,6 +84,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onSelectTab, onOpe
             </div>
           </div>
         </div>
+
+        {isMobile && onCloseMobile && (
+          <button
+            type="button"
+            onClick={onCloseMobile}
+            className="p-1.5 text-[#94A3B8] hover:text-white rounded-lg hover:bg-[#1E3A5F]/40 transition-colors"
+            aria-label="Close navigation menu"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        )}
       </div>
 
       {/* Navigation Items */}
@@ -84,7 +104,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onSelectTab, onOpe
           return (
             <button
               key={item.id}
-              onClick={() => onSelectTab(item.id)}
+              onClick={() => {
+                onSelectTab(item.id);
+                if (isMobile && onCloseMobile) onCloseMobile();
+              }}
               className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-xs font-medium transition-all duration-150 ${
                 isActive
                   ? 'bg-[#111827] text-[#00C2FF] border border-[#00C2FF]/30 shadow-[0_0_15px_rgba(0,194,255,0.12)]'
@@ -162,7 +185,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onSelectTab, onOpe
         {/* User Management shortcut for Admin */}
         {role === 'admin' && onOpenUserManagement && (
           <button
-            onClick={onOpenUserManagement}
+            onClick={() => {
+              onOpenUserManagement();
+              if (isMobile && onCloseMobile) onCloseMobile();
+            }}
             className="w-full mt-1 flex items-center justify-center space-x-1.5 py-1 px-2 bg-[#1E3A5F]/50 hover:bg-[#1E3A5F] text-[#00C2FF] border border-[#00C2FF]/30 rounded text-[10px] font-medium transition-all"
           >
             <UserCheck className="w-3 h-3" />
@@ -170,6 +196,28 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onSelectTab, onOpe
           </button>
         )}
       </div>
-    </aside>
+    </div>
+  );
+
+  return (
+    <>
+      {/* Desktop Persistent Sidebar */}
+      <aside className="hidden lg:flex w-64 bg-[#0A0A0A] border-r border-[#1E3A5F]/60 flex-col h-screen select-none shrink-0">
+        {renderSidebarContent(false)}
+      </aside>
+
+      {/* Mobile Slide-over Drawer with Backdrop */}
+      {isMobileOpen && (
+        <div className="fixed inset-0 z-50 lg:hidden flex">
+          <div
+            className="fixed inset-0 bg-black/80 backdrop-blur-xs transition-opacity"
+            onClick={onCloseMobile}
+          />
+          <aside className="relative z-50 w-72 max-w-[85vw] bg-[#0A0A0A] border-r border-[#1E3A5F] flex flex-col h-full select-none shadow-2xl animate-in slide-in-from-left duration-200">
+            {renderSidebarContent(true)}
+          </aside>
+        </div>
+      )}
+    </>
   );
 };

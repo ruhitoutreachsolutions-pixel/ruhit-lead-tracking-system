@@ -51,6 +51,9 @@ export const BulkEditModal: React.FC<BulkEditModalProps> = ({
   const [applyBrand, setApplyBrand] = useState(false);
   const [brandValue, setBrandValue] = useState<string>('');
 
+  const [applyInterestedDate, setApplyInterestedDate] = useState(false);
+  const [interestedDateValue, setInterestedDateValue] = useState('');
+
   const [applyWaFollowup, setApplyWaFollowup] = useState(false);
   const [waFollowupValue, setWaFollowupValue] = useState<string>('none');
 
@@ -85,6 +88,17 @@ export const BulkEditModal: React.FC<BulkEditModalProps> = ({
       const updates: Partial<Lead> = {};
       const now = new Date().toISOString();
 
+      if (applyInterestedDate) {
+        if (interestedDateValue.trim()) {
+          const d = new Date(interestedDateValue.trim());
+          const iso = !isNaN(d.getTime()) ? d.toISOString() : `${interestedDateValue.trim()}T00:00:00`;
+          updates.interested_at = iso;
+          updates.is_interested = true;
+        } else {
+          updates.interested_at = null;
+        }
+      }
+
       if (applyStage) {
         if (stageValue === 'outreach') {
           updates.is_interested = false;
@@ -93,7 +107,9 @@ export const BulkEditModal: React.FC<BulkEditModalProps> = ({
           updates.meeting_count_type = null;
         } else if (stageValue === 'interested') {
           updates.is_interested = true;
-          updates.interested_at = now;
+          if (!applyInterestedDate) {
+            updates.interested_at = now;
+          }
           updates.is_meeting_scheduled = false;
           updates.is_meeting_done = false;
           updates.meeting_count_type = null;
@@ -216,6 +232,7 @@ export const BulkEditModal: React.FC<BulkEditModalProps> = ({
     applyAccount ||
     applyCampaign ||
     applyBrand ||
+    applyInterestedDate ||
     applyWaFollowup ||
     applyEmailFollowup ||
     applyEmail1Date ||
@@ -412,6 +429,57 @@ export const BulkEditModal: React.FC<BulkEditModalProps> = ({
               </select>
             </div>
 
+            {/* Brand */}
+            <div className={`p-3 rounded-lg border transition-all ${applyBrand ? 'bg-[#111827] border-[#00C2FF]/50' : 'bg-[#0A0A0A] border-[#1E3A5F]/40 opacity-70'}`}>
+              <div className="flex items-center justify-between mb-2">
+                <label className="font-semibold text-white flex items-center space-x-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={applyBrand}
+                    onChange={(e) => setApplyBrand(e.target.checked)}
+                    className="rounded border-[#1E3A5F] text-[#00C2FF] bg-[#111827] focus:ring-0"
+                  />
+                  <span>Brand</span>
+                </label>
+              </div>
+              <select
+                disabled={!applyBrand}
+                value={brandValue}
+                onChange={(e) => setBrandValue(e.target.value)}
+                className="w-full bg-[#0A0A0A] text-white border border-[#1E3A5F] rounded-lg px-2.5 py-1.5 focus:border-[#00C2FF] focus:outline-none disabled:opacity-40"
+              >
+                <option value="">-- Select Brand --</option>
+                {brands.map((b) => (
+                  <option key={b.id} value={b.id}>{b.name}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Date of Interested */}
+            <div className={`p-3 rounded-lg border transition-all ${applyInterestedDate ? 'bg-[#111827] border-[#00C2FF]/50' : 'bg-[#0A0A0A] border-[#1E3A5F]/40 opacity-70'}`}>
+              <div className="flex items-center justify-between mb-2">
+                <label className="font-semibold text-white flex items-center space-x-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={applyInterestedDate}
+                    onChange={(e) => setApplyInterestedDate(e.target.checked)}
+                    className="rounded border-[#1E3A5F] text-[#00C2FF] bg-[#111827] focus:ring-0"
+                  />
+                  <span>Date of Interested (Historical Milestone)</span>
+                </label>
+              </div>
+              <input
+                type="date"
+                disabled={!applyInterestedDate}
+                value={interestedDateValue}
+                onChange={(e) => setInterestedDateValue(e.target.value)}
+                className="w-full bg-[#0A0A0A] text-white border border-[#1E3A5F] rounded-lg px-2.5 py-1.5 font-mono focus:border-[#00C2FF] focus:outline-none disabled:opacity-40"
+              />
+              <p className="text-[10px] text-[#64748B] mt-1">
+                Ensures leads from earlier months do not artificially count toward running month's Total Interested.
+              </p>
+            </div>
+
             {/* 7. WhatsApp Follow Up */}
             <div className={`p-3 rounded-lg border transition-all ${applyWaFollowup ? 'bg-[#111827] border-[#00C2FF]/50' : 'bg-[#0A0A0A] border-[#1E3A5F]/40 opacity-70'}`}>
               <div className="flex items-center justify-between mb-2">
@@ -506,6 +574,29 @@ export const BulkEditModal: React.FC<BulkEditModalProps> = ({
                 placeholder="DD/MM/YY"
                 value={email2DateValue}
                 onChange={(e) => setEmail2DateValue(e.target.value)}
+                className="w-full bg-[#0A0A0A] text-white border border-[#1E3A5F] rounded-lg px-2.5 py-1.5 font-mono focus:border-[#00C2FF] focus:outline-none disabled:opacity-40"
+              />
+            </div>
+
+            {/* 11. Email 3 Date */}
+            <div className={`p-3 rounded-lg border transition-all ${applyEmail3Date ? 'bg-[#111827] border-[#00C2FF]/50' : 'bg-[#0A0A0A] border-[#1E3A5F]/40 opacity-70'}`}>
+              <div className="flex items-center justify-between mb-2">
+                <label className="font-semibold text-white flex items-center space-x-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={applyEmail3Date}
+                    onChange={(e) => setApplyEmail3Date(e.target.checked)}
+                    className="rounded border-[#1E3A5F] text-[#00C2FF] bg-[#111827] focus:ring-0"
+                  />
+                  <span>Email 3 Dispatch Date</span>
+                </label>
+              </div>
+              <input
+                type="text"
+                disabled={!applyEmail3Date}
+                placeholder="DD/MM/YY"
+                value={email3DateValue}
+                onChange={(e) => setEmail3DateValue(e.target.value)}
                 className="w-full bg-[#0A0A0A] text-white border border-[#1E3A5F] rounded-lg px-2.5 py-1.5 font-mono focus:border-[#00C2FF] focus:outline-none disabled:opacity-40"
               />
             </div>

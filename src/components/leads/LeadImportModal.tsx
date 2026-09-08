@@ -32,6 +32,8 @@ interface ParsedRow {
   first_name: string;
   last_name: string;
   company_name: string;
+  brand_name: string;
+  date_of_interested: string;
   whatsapp_number: string;
   alternative_phone: string;
   city: string;
@@ -170,13 +172,13 @@ export const LeadImportModal: React.FC<LeadImportModalProps> = ({
 
   const handleDownloadSampleCSV = () => {
     const csvContent = [
-      'Email,First Name,Last Name,Company Name,WhatsApp Number,Alternative Number,City,Country,Primary Stage,WhatsApp Follow Up,Interested Email Follow Up,Email 1 Date,Email 2 Date,Email 3 Date,Meeting Date,Meeting Time,Date Added',
-      'john.smith@techflow.io,John,Smith,TechFlow Inc,+1 555-234-5678,+1 555-987-6543,New York,United States,Meeting Count = YES,WA2 Follow Up Sent,FW1 Sent,2026-08-12,2026-08-16,2026-08-20,2026-08-25,10:30 AM,2026-08-10',
-      'sarah.jenkins@lumina.co,Sarah,Jenkins,Lumina Design,+44 7700 900123,+44 20 7946 0192,London,United Kingdom,Meeting Scheduled,WA1 Sent,,2026-09-01,2026-09-04,,2026-09-12,02:00 PM,2026-09-01',
-      'alex.rivas@vertexauto.com,Alex,Rivas,Vertex Auto,+1 415-555-7890,,San Francisco,United States,Interested,,,2026-09-02,,,2026-09-02',
-      'david.choi@apexbiotech.com,David,Choi,Apex Bio,,+1 617-555-3456,Boston,United States,Meeting Count = NO,WA3 Follow Up Sent,FW2 Sent,2026-08-05,2026-08-09,2026-08-14,2026-08-22,04:15 PM,2026-08-01',
-      'elena.rostova@nordicscale.se,Elena,Rostova,NordicScale,+46 70 123 4567,,Stockholm,Sweden,Outreach,,,2026-08-28,,,2026-08-28',
-      'marcus.vance@solarsolutions.org,Marcus,Vance,Solar Solutions,+1 312-555-0199,,Chicago,United States,Pending YES,WA1 Sent,,2026-09-03,,,2026-09-03'
+      'Email,First Name,Last Name,Company Name,Brand Name,Date of Interested,WhatsApp Number,Alternative Number,City,Country,Primary Stage,WhatsApp Follow Up,Interested Email Follow Up,Email 1 Date,Email 2 Date,Email 3 Date,Meeting Date,Meeting Time,Date Added',
+      'john.smith@techflow.io,John,Smith,TechFlow Inc,TechFlow,2026-08-15,+1 555-234-5678,+1 555-987-6543,New York,United States,Meeting Count = YES,WA2 Follow Up Sent,FW1 Sent,2026-08-12,2026-08-16,2026-08-20,2026-08-25,10:30 AM,2026-08-10',
+      'sarah.jenkins@lumina.co,Sarah,Jenkins,Lumina Design,Lumina,2026-09-01,+44 7700 900123,+44 20 7946 0192,London,United Kingdom,Meeting Scheduled,WA1 Sent,,2026-09-01,2026-09-04,,2026-09-12,02:00 PM,2026-09-01',
+      'alex.rivas@vertexauto.com,Alex,Rivas,Vertex Auto,Vertex,2026-08-20,+1 415-555-7890,,San Francisco,United States,Interested,,,2026-08-18,,,2026-08-18',
+      'david.choi@apexbiotech.com,David,Choi,Apex Bio,Apex,2026-08-10,,+1 617-555-3456,Boston,United States,Meeting Count = NO,WA3 Follow Up Sent,FW2 Sent,2026-08-05,2026-08-09,2026-08-14,2026-08-22,04:15 PM,2026-08-01',
+      'elena.rostova@nordicscale.se,Elena,Rostova,NordicScale,NordicScale,,,+46 70 123 4567,,Stockholm,Sweden,Outreach,,,2026-08-28,,,2026-08-28',
+      'marcus.vance@solarsolutions.org,Marcus,Vance,Solar Solutions,Solar Solutions,2026-09-02,+1 312-555-0199,,Chicago,United States,Pending YES,WA1 Sent,,2026-09-01,,,2026-09-01'
     ].join('\n');
 
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -225,6 +227,8 @@ export const LeadImportModal: React.FC<LeadImportModalProps> = ({
       first_name: 1,
       last_name: 2,
       company_name: 3,
+      brand_name: -1,
+      date_of_interested: -1,
       whatsapp_number: 4,
       alternative_phone: 5,
       city: 6,
@@ -248,6 +252,8 @@ export const LeadImportModal: React.FC<LeadImportModalProps> = ({
         else if (col.includes('first')) colIndices.first_name = idx;
         else if (col.includes('last')) colIndices.last_name = idx;
         else if (col.includes('company') || col.includes('org')) colIndices.company_name = idx;
+        else if (col.includes('brand')) colIndices.brand_name = idx;
+        else if (col.includes('interested') && (col.includes('date') || col.includes('time') || col.includes('at'))) colIndices.date_of_interested = idx;
         else if (col.includes('whatsapp') || col === 'wa' || col === 'wa number') colIndices.whatsapp_number = idx;
         else if (col.includes('alt') || col.includes('second') || col.includes('other phone')) colIndices.alternative_phone = idx;
         else if (col === 'city') colIndices.city = idx;
@@ -262,6 +268,28 @@ export const LeadImportModal: React.FC<LeadImportModalProps> = ({
         else if (col.includes('meeting time') || col === 'mtg time') colIndices.meeting_time = idx;
         else if (col.includes('date added') || col.includes('created') || col === 'date') colIndices.date_added = idx;
       });
+    } else if (firstLineCols.length >= 19) {
+      colIndices = {
+        email: 0,
+        first_name: 1,
+        last_name: 2,
+        company_name: 3,
+        brand_name: 4,
+        date_of_interested: 5,
+        whatsapp_number: 6,
+        alternative_phone: 7,
+        city: 8,
+        country: 9,
+        primary_stage: 10,
+        whatsapp_followup: 11,
+        interested_email_followup: 12,
+        email_1_date: 13,
+        email_2_date: 14,
+        email_3_date: 15,
+        meeting_date: 16,
+        meeting_time: 17,
+        date_added: 18
+      };
     }
 
     const rows: ParsedRow[] = [];
@@ -275,6 +303,8 @@ export const LeadImportModal: React.FC<LeadImportModalProps> = ({
       const firstName = cols[colIndices.first_name] || '';
       const lastName = cols[colIndices.last_name] || '';
       const company = cols[colIndices.company_name] || '';
+      const brandName = colIndices.brand_name !== -1 ? cols[colIndices.brand_name] || '' : '';
+      const dateOfInterested = colIndices.date_of_interested !== -1 ? cols[colIndices.date_of_interested] || '' : '';
       const whatsapp = cols[colIndices.whatsapp_number] || '';
       const altPhone = cols[colIndices.alternative_phone] || '';
       const city = cols[colIndices.city] || '';
@@ -308,6 +338,8 @@ export const LeadImportModal: React.FC<LeadImportModalProps> = ({
         first_name: firstName,
         last_name: lastName,
         company_name: company,
+        brand_name: brandName,
+        date_of_interested: dateOfInterested,
         whatsapp_number: whatsapp,
         alternative_phone: altPhone,
         city,
@@ -348,6 +380,10 @@ export const LeadImportModal: React.FC<LeadImportModalProps> = ({
       const selectedUser = allUsers.find((u) => u.id === assignedUserId);
 
       const toImport: Partial<Lead>[] = validRows.map((r) => {
+        const rowBrand = r.brand_name ? brands.find((b) => b.name.toLowerCase() === r.brand_name.toLowerCase()) : null;
+        const finalBrandId = rowBrand?.id || brandId || undefined;
+        const finalBrandName = rowBrand?.name || r.brand_name || selectedBrand?.name;
+
         const stageMilestones = resolveMilestonesFromStage(r.primary_stage);
         const waFollowup = normalizeWhatsAppFollowUp(r.whatsapp_followup);
         const emailFollowup = normalizeEmailFollowUp(r.interested_email_followup);
@@ -355,6 +391,10 @@ export const LeadImportModal: React.FC<LeadImportModalProps> = ({
         // Preserve historical creation date if provided so it doesn't artificially count for current month
         const historicalIso = parseDateIso(r.date_added);
         const createdAt = historicalIso || new Date().toISOString();
+
+        // Milestone dates: if date_of_interested is explicitly given, parse it; otherwise fallback to createdAt
+        const interestedIso = parseDateIso(r.date_of_interested);
+        const interestedAt = stageMilestones.is_interested ? (interestedIso || createdAt) : null;
 
         return {
           email: r.email,
@@ -368,15 +408,15 @@ export const LeadImportModal: React.FC<LeadImportModalProps> = ({
           list_ids: targetListId ? [targetListId] : [],
           campaign_id: campaignId || undefined,
           campaign_name: selectedCampaign?.name,
-          brand_id: brandId || undefined,
-          brand_name: selectedBrand?.name,
+          brand_id: finalBrandId,
+          brand_name: finalBrandName,
           account_id: accountId || undefined,
           account_name: selectedAccount?.account_name,
           assigned_user_id: assignedUserId,
           assigned_user_name: selectedUser?.full_name,
           priority: stageMilestones.priority,
           is_interested: stageMilestones.is_interested,
-          interested_at: stageMilestones.is_interested ? createdAt : null,
+          interested_at: interestedAt,
           is_meeting_scheduled: stageMilestones.is_meeting_scheduled,
           meeting_scheduled_at: stageMilestones.is_meeting_scheduled ? createdAt : null,
           is_meeting_done: stageMilestones.is_meeting_done,
@@ -660,6 +700,8 @@ export const LeadImportModal: React.FC<LeadImportModalProps> = ({
                       <th className="p-2.5">Email</th>
                       <th className="p-2.5">Name</th>
                       <th className="p-2.5">Company</th>
+                      <th className="p-2.5">Brand</th>
+                      <th className="p-2.5">Date of Interested</th>
                       <th className="p-2.5">Primary Stage</th>
                       <th className="p-2.5">WhatsApp Follow Up</th>
                       <th className="p-2.5">Email Follow Up</th>
@@ -693,6 +735,8 @@ export const LeadImportModal: React.FC<LeadImportModalProps> = ({
                         <td className="p-2.5 font-mono text-white">{row.email}</td>
                         <td className="p-2.5 text-white">{row.first_name} {row.last_name}</td>
                         <td className="p-2.5 text-white">{row.company_name}</td>
+                        <td className="p-2.5 text-[#00C2FF]">{row.brand_name || '—'}</td>
+                        <td className="p-2.5 text-[#F59E0B] font-mono">{row.date_of_interested || '—'}</td>
                         <td className="p-2.5">
                           {row.primary_stage ? (
                             <span className="px-2 py-0.5 rounded text-[10px] bg-[#1E3A5F]/60 text-[#00C2FF] border border-[#00C2FF]/30 font-medium">

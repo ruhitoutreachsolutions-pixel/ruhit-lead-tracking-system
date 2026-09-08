@@ -281,4 +281,39 @@ describe('Cumulative Milestone Counting Logic (Requirements 8-12 & 82)', () => {
     expect(lifetimeMetrics.totalMeetingDone).toBe(1);
     expect(lifetimeMetrics.totalMeetingCount).toBe(1);
   });
+
+  it('Prior-month interested lead scheduling a meeting this month does NOT count in this month Total Interested', () => {
+    const augustStart = new Date(2026, 7, 1, 0, 0, 0); // Aug 1, 2026
+    const augustEnd = new Date(2026, 7, 31, 23, 59, 59); // Aug 31, 2026
+    const septemberStart = new Date(2026, 8, 1, 0, 0, 0); // Sept 1, 2026
+    const septemberEnd = new Date(2026, 8, 30, 23, 59, 59); // Sept 30, 2026
+
+    const historicalLead: Lead = {
+      id: 'lead-august-inter-sept-meet',
+      email: 'historical@example.com',
+      company_name: 'Historical Co',
+      priority: 'High',
+      is_interested: true,
+      interested_at: '2026-08-15T10:00:00.000Z', // August
+      is_meeting_scheduled: true,
+      meeting_scheduled_at: '2026-09-05T14:00:00.000Z', // September
+      meeting_date: '2026-09-10',
+      meeting_time: '14:00',
+      is_meeting_done: false,
+      meeting_count_type: null,
+      is_pending: false,
+      created_at: '2026-08-10T09:00:00.000Z',
+      updated_at: '2026-09-08T18:00:00.000Z', // Edited today in September
+    };
+
+    // In September:
+    const septMetrics = calculateDateScopedMetrics([historicalLead], [], septemberStart, septemberEnd);
+    expect(septMetrics.totalInterested).toBe(0); // Must NOT count in September Total Interested
+    expect(septMetrics.totalMeetingScheduled).toBe(1); // Counted in September Meeting Scheduled
+
+    // In August:
+    const augMetrics = calculateDateScopedMetrics([historicalLead], [], augustStart, augustEnd);
+    expect(augMetrics.totalInterested).toBe(1); // Counted in August Total Interested
+    expect(augMetrics.totalMeetingScheduled).toBe(0); // Not scheduled in August
+  });
 });

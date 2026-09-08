@@ -123,23 +123,23 @@ export function calculateDateScopedMetrics(
   let pendingYes = 0;
 
   for (const lead of leads) {
-    // Check interested timestamp (fallback to updated_at/created_at if milestone is marked)
-    const interestedTimestamp = lead.interested_at || (lead.is_interested ? (lead.updated_at || lead.created_at) : null);
+    // Check interested timestamp (fallback strictly to created_at if milestone is marked without explicit interested_at)
+    const interestedTimestamp = lead.interested_at || (lead.is_interested ? lead.created_at : null);
     if (isTimestampInRange(interestedTimestamp, startDate, endDate)) {
       totalInterested++;
     }
     // Check meeting scheduled timestamp
-    const scheduledTimestamp = lead.meeting_scheduled_at || (lead.is_meeting_scheduled && lead.meeting_date ? `${lead.meeting_date}T00:00:00` : (lead.is_meeting_scheduled ? (lead.updated_at || lead.created_at) : null));
+    const scheduledTimestamp = lead.meeting_scheduled_at || (lead.is_meeting_scheduled && lead.meeting_date ? `${lead.meeting_date}T00:00:00` : (lead.is_meeting_scheduled ? lead.created_at : null));
     if (isTimestampInRange(scheduledTimestamp, startDate, endDate)) {
       totalMeetingScheduled++;
     }
     // Check meeting done timestamp
-    const doneTimestamp = lead.meeting_done_at || ((lead.is_meeting_done || lead.meeting_count_type) ? (lead.meeting_date ? `${lead.meeting_date}T00:00:00` : lead.updated_at || lead.created_at) : null);
+    const doneTimestamp = lead.meeting_done_at || ((lead.is_meeting_done || lead.meeting_count_type) ? (lead.meeting_date ? `${lead.meeting_date}T00:00:00` : lead.created_at) : null);
     if (isTimestampInRange(doneTimestamp, startDate, endDate)) {
       totalMeetingDone++;
     }
     // Check meeting count timestamp
-    const countTimestamp = lead.meeting_count_at || (lead.meeting_count_type ? (lead.meeting_date ? `${lead.meeting_date}T00:00:00` : lead.updated_at || lead.created_at) : null);
+    const countTimestamp = lead.meeting_count_at || (lead.meeting_count_type ? (lead.meeting_date ? `${lead.meeting_date}T00:00:00` : lead.created_at) : null);
     if (isTimestampInRange(countTimestamp, startDate, endDate)) {
       if (lead.meeting_count_type === 'YES') {
         meetingCountYes++;
@@ -149,7 +149,7 @@ export function calculateDateScopedMetrics(
       }
     }
     // Check pending timestamp
-    const pendingTimestamp = lead.pending_at || (lead.is_pending ? (lead.updated_at || lead.created_at) : null);
+    const pendingTimestamp = lead.pending_at || (lead.is_pending ? lead.created_at : null);
     if (isTimestampInRange(pendingTimestamp, startDate, endDate) && lead.is_pending) {
       pendingYes++;
     }

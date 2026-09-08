@@ -15,8 +15,7 @@ export const MeetingOutcomeModal: React.FC<MeetingOutcomeModalProps> = ({
 }) => {
   const { leads, markMeetingDone, setMeetingCount, togglePending } = useLeads();
 
-  const [outcome, setOutcome] = useState<'YES' | 'NO'>('YES');
-  const [isPending, setIsPending] = useState(false);
+  const [outcomeChoice, setOutcomeChoice] = useState<'COUNT_YES' | 'COUNT_NO' | 'PENDING_YES'>('COUNT_YES');
   const [note, setNote] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -29,10 +28,15 @@ export const MeetingOutcomeModal: React.FC<MeetingOutcomeModalProps> = ({
     e.preventDefault();
     setIsSubmitting(true);
     try {
-      // Set Meeting Done and Meeting Count
-      await setMeetingCount(lead.id, outcome, note);
-      if (isPending) {
+      if (outcomeChoice === 'PENDING_YES') {
+        await setMeetingCount(lead.id, 'YES', note);
         await togglePending(lead.id, true, note);
+      } else if (outcomeChoice === 'COUNT_NO') {
+        await setMeetingCount(lead.id, 'NO', note);
+        await togglePending(lead.id, false, note);
+      } else {
+        await setMeetingCount(lead.id, 'YES', note);
+        await togglePending(lead.id, false, note);
       }
       onClose();
     } catch (err) {
@@ -68,55 +72,54 @@ export const MeetingOutcomeModal: React.FC<MeetingOutcomeModalProps> = ({
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="p-6 space-y-4 text-xs">
-          {/* Outcome Choice */}
+          {/* Outcome Choice: 3 Options */}
           <div>
             <label className="block text-[#94A3B8] font-medium mb-2">
-              Did this meeting qualify for Meeting Count?
+              Select Meeting Qualification & Stage Outcome:
             </label>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-3 gap-2">
               <button
                 type="button"
-                onClick={() => setOutcome('YES')}
+                onClick={() => setOutcomeChoice('COUNT_YES')}
                 className={`p-3 rounded-lg border text-center transition-all ${
-                  outcome === 'YES'
+                  outcomeChoice === 'COUNT_YES'
                     ? 'bg-[#00E5A0]/20 border-[#00E5A0] text-[#00E5A0] font-bold shadow-[0_0_12px_rgba(0,229,160,0.2)]'
                     : 'bg-[#111827] border-[#1E3A5F] text-[#7B7B7B] hover:text-white'
                 }`}
               >
-                <div className="text-sm font-bold">COUNT YES</div>
-                <div className="text-[10px] opacity-80 mt-0.5">Increments Total Count</div>
+                <div className="text-xs font-bold">COUNT YES</div>
+                <div className="text-[10px] opacity-80 mt-0.5">Increments Count</div>
               </button>
 
               <button
                 type="button"
-                onClick={() => setOutcome('NO')}
+                onClick={() => setOutcomeChoice('PENDING_YES')}
                 className={`p-3 rounded-lg border text-center transition-all ${
-                  outcome === 'NO'
+                  outcomeChoice === 'PENDING_YES'
                     ? 'bg-[#F97316]/20 border-[#F97316] text-[#F97316] font-bold shadow-[0_0_12px_rgba(249,115,22,0.2)]'
                     : 'bg-[#111827] border-[#1E3A5F] text-[#7B7B7B] hover:text-white'
                 }`}
               >
-                <div className="text-sm font-bold">COUNT NO</div>
-                <div className="text-[10px] opacity-80 mt-0.5">Meeting Done only</div>
+                <div className="text-xs font-bold">PENDING "YES"</div>
+                <div className="text-[10px] opacity-80 mt-0.5">Active Follow-up</div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setOutcomeChoice('COUNT_NO')}
+                className={`p-3 rounded-lg border text-center transition-all ${
+                  outcomeChoice === 'COUNT_NO'
+                    ? 'bg-neutral-800 border-neutral-500 text-neutral-200 font-bold'
+                    : 'bg-[#111827] border-[#1E3A5F] text-[#7B7B7B] hover:text-white'
+                }`}
+              >
+                <div className="text-xs font-bold">COUNT NO</div>
+                <div className="text-[10px] opacity-80 mt-0.5">Done only</div>
               </button>
             </div>
             <p className="text-[10px] text-[#7B7B7B] mt-2 leading-relaxed">
-              <strong>Crucial Rule:</strong> Both options mark <em>Meeting Done = YES</em> in the database. Only <em>COUNT YES</em> increments the official Meeting Count KPI.
+              <strong>Rules:</strong> All options mark <em>Meeting Done = YES</em>. <em>COUNT YES</em> and <em>PENDING "YES"</em> increment Meeting Count KPI. <em>PENDING "YES"</em> also keeps the lead in the active Pending Kanban column for continuous follow-up.
             </p>
-          </div>
-
-          {/* Pending Toggle */}
-          <div className="p-3 bg-[#111827] border border-[#1E3A5F]/60 rounded-lg flex items-center justify-between">
-            <div>
-              <span className="font-semibold text-white">Require Pending Follow-up?</span>
-              <p className="text-[10px] text-[#7B7B7B]">Keeps lead active in the Pending column</p>
-            </div>
-            <input
-              type="checkbox"
-              checked={isPending}
-              onChange={(e) => setIsPending(e.target.checked)}
-              className="w-4 h-4 rounded border-[#1E3A5F] text-[#F97316] bg-[#0A0A0A]"
-            />
           </div>
 
           {/* Notes */}

@@ -12,7 +12,8 @@ import {
   Smartphone,
   Users,
   LogOut,
-  Wifi
+  Wifi,
+  Menu
 } from 'lucide-react';
 import { useLeads } from '../../context/LeadContext';
 import { useAuth } from '../../context/AuthContext';
@@ -30,6 +31,7 @@ interface HeaderProps {
   searchQuery: string;
   onSearchChange: (q: string) => void;
   onSelectLead?: (leadId: string) => void;
+  onToggleMobileMenu?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -39,6 +41,7 @@ export const Header: React.FC<HeaderProps> = ({
   searchQuery,
   onSearchChange,
   onSelectLead,
+  onToggleMobileMenu,
 }) => {
   const { leads, cloudStatus, refreshDataFromCloud, notifications, lastSyncTime } = useLeads();
   const { currentUser, role, permissions, logout } = useAuth();
@@ -78,29 +81,41 @@ export const Header: React.FC<HeaderProps> = ({
   const unreadNotifs = notifications.filter((n) => !n.is_read).length;
 
   return (
-    <header className="h-16 bg-[#0A0A0A] border-b border-[#1E3A5F]/60 px-6 flex items-center justify-between shrink-0 select-none">
-      {/* Search Input Bar */}
-      <div className="flex items-center flex-1 max-w-md relative">
-        <Search className="w-4 h-4 text-[#7B7B7B] absolute left-3.5 top-1/2 -translate-y-1/2" />
-        <input
-          type="text"
-          value={searchQuery}
-          onChange={(e) => onSearchChange(e.target.value)}
-          placeholder="Search leads, company, city, campaign, account..."
-          className="w-full bg-[#111827] text-xs text-white placeholder-[#7B7B7B] pl-10 pr-4 py-2 rounded-lg border border-[#1E3A5F]/60 focus:outline-none focus:border-[#00C2FF] transition-all"
-        />
-        {searchQuery && (
+    <header className="h-16 bg-[#0A0A0A] border-b border-[#1E3A5F]/60 px-3 sm:px-6 flex items-center justify-between shrink-0 select-none">
+      {/* Mobile Menu Toggle & Search Bar */}
+      <div className="flex items-center flex-1 max-w-md">
+        {onToggleMobileMenu && (
           <button
-            onClick={() => onSearchChange('')}
-            className="text-[11px] text-[#7B7B7B] hover:text-white absolute right-3 top-1/2 -translate-y-1/2"
+            type="button"
+            onClick={onToggleMobileMenu}
+            className="lg:hidden mr-2.5 p-2 rounded-lg bg-[#111827] text-[#94A3B8] hover:text-white border border-[#1E3A5F]/60 focus:outline-none"
+            aria-label="Toggle navigation menu"
           >
-            Clear
+            <Menu className="w-5 h-5" />
           </button>
         )}
+        <div className="flex items-center flex-1 relative">
+          <Search className="w-4 h-4 text-[#7B7B7B] absolute left-3.5 top-1/2 -translate-y-1/2" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => onSearchChange(e.target.value)}
+            placeholder="Search leads, company, city..."
+            className="w-full bg-[#111827] text-xs text-white placeholder-[#7B7B7B] pl-10 pr-4 py-2 rounded-lg border border-[#1E3A5F]/60 focus:outline-none focus:border-[#00C2FF] transition-all"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => onSearchChange('')}
+              className="text-[11px] text-[#7B7B7B] hover:text-white absolute right-3 top-1/2 -translate-y-1/2"
+            >
+              Clear
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Right Action Controls */}
-      <div className="flex items-center space-x-3 ml-4">
+      <div className="flex items-center space-x-2 sm:space-x-3 ml-2 sm:ml-4">
         {/* Timezone Clock Display */}
         <div className="hidden xl:flex items-center space-x-1.5 px-2.5 py-1 bg-[#111827] rounded-md border border-[#1E3A5F]/40 text-[11px] font-mono text-[#94A3B8]">
           <Clock className="w-3.5 h-3.5 text-[#00C2FF]" />
@@ -111,10 +126,10 @@ export const Header: React.FC<HeaderProps> = ({
         <button
           onClick={() => refreshDataFromCloud()}
           title={lastSyncTime ? `Auto-sync running every 15s. Last synced: ${lastSyncTime.toLocaleTimeString()}` : 'Syncing with Supabase Cloud every 15s'}
-          className="flex items-center space-x-2 px-3 py-1.5 bg-[#111827] hover:bg-[#1E3A5F]/40 text-xs font-mono rounded-lg border border-[#00C2FF]/30 text-[#00C2FF] transition-all"
+          className="flex items-center space-x-1.5 sm:space-x-2 px-2.5 sm:px-3 py-1.5 bg-[#111827] hover:bg-[#1E3A5F]/40 text-xs font-mono rounded-lg border border-[#00C2FF]/30 text-[#00C2FF] transition-all"
         >
           <RefreshCw className={`w-3.5 h-3.5 ${cloudStatus === 'syncing' ? 'animate-spin text-[#00E5A0]' : ''}`} />
-          <span className="font-sans font-medium flex items-center gap-1.5">
+          <span className="font-sans font-medium hidden md:flex items-center gap-1.5">
             <span>Auto-Sync (15s)</span>
             <span className={`w-1.5 h-1.5 rounded-full ${cloudStatus === 'connected' ? 'bg-[#00E5A0]' : cloudStatus === 'syncing' ? 'bg-[#00C2FF] animate-ping' : 'bg-[#F97316]'}`} />
           </span>
@@ -127,10 +142,11 @@ export const Header: React.FC<HeaderProps> = ({
         {permissions.can_create_edit_leads && (
           <button
             onClick={onOpenAddLead}
-            className="flex items-center space-x-1.5 px-3.5 py-1.5 bg-[#00E5A0] hover:bg-[#00E5A0]/90 text-black font-semibold text-xs rounded-lg transition-all shadow-[0_0_12px_rgba(0,229,160,0.3)]"
+            className="flex items-center space-x-1 sm:space-x-1.5 px-2.5 sm:px-3.5 py-1.5 bg-[#00E5A0] hover:bg-[#00E5A0]/90 text-black font-semibold text-xs rounded-lg transition-all shadow-[0_0_12px_rgba(0,229,160,0.3)]"
           >
             <Plus className="w-4 h-4 text-black stroke-[3]" />
-            <span>+ Add Single Lead</span>
+            <span className="hidden sm:inline">+ Add Single Lead</span>
+            <span className="sm:hidden">Add</span>
           </button>
         )}
 
@@ -138,10 +154,11 @@ export const Header: React.FC<HeaderProps> = ({
         {permissions.can_bulk_import && (
           <button
             onClick={onOpenImportLeads}
-            className="flex items-center space-x-1.5 px-3 py-1.5 bg-[#111827] hover:bg-[#182234] text-xs text-[#00C2FF] font-medium rounded-lg border border-[#00C2FF]/40 transition-all"
+            className="flex items-center space-x-1 sm:space-x-1.5 px-2.5 sm:px-3 py-1.5 bg-[#111827] hover:bg-[#182234] text-xs text-[#00C2FF] font-medium rounded-lg border border-[#00C2FF]/40 transition-all"
           >
             <FileSpreadsheet className="w-3.5 h-3.5" />
-            <span>Import Leads</span>
+            <span className="hidden sm:inline">Import Leads</span>
+            <span className="sm:hidden">Import</span>
           </button>
         )}
 

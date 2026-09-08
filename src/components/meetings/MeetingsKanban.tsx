@@ -29,7 +29,7 @@ interface MeetingsKanbanProps {
 }
 
 export const MeetingsKanban: React.FC<MeetingsKanbanProps> = ({ onSelectLead }) => {
-  const { leads, meetings, updateMeeting, rescheduleMeeting, togglePending, setMeetingCount, markMeetingDone } = useLeads();
+  const { leads, meetings, updateLead, updateMeeting, rescheduleMeeting, togglePending, setMeetingCount, markMeetingDone } = useLeads();
 
   const [viewMode, setViewMode] = useState<'kanban' | 'list'>('kanban');
   const [listSearch, setListSearch] = useState('');
@@ -42,11 +42,13 @@ export const MeetingsKanban: React.FC<MeetingsKanbanProps> = ({ onSelectLead }) 
 
   const now = new Date();
 
-  // 5 Kanban columns
+  // 5 Kanban columns - strictly mutually exclusive
   const scheduledLeads = leads.filter(
     (l) =>
       l.is_meeting_scheduled &&
       !l.is_meeting_done &&
+      !l.is_pending &&
+      !l.meeting_count_type &&
       l.meeting_date &&
       new Date(`${l.meeting_date}T${l.meeting_time || '23:59'}:00`).getTime() >= now.getTime() - 15 * 60 * 1000
   );
@@ -55,12 +57,14 @@ export const MeetingsKanban: React.FC<MeetingsKanbanProps> = ({ onSelectLead }) 
     (l) =>
       l.is_meeting_scheduled &&
       !l.is_meeting_done &&
+      !l.is_pending &&
+      !l.meeting_count_type &&
       l.meeting_date &&
       new Date(`${l.meeting_date}T${l.meeting_time || '23:59'}:00`).getTime() < now.getTime() - 15 * 60 * 1000
   );
 
   const countYesLeads = leads.filter(
-    (l) => l.is_meeting_done && l.meeting_count_type === 'YES'
+    (l) => l.is_meeting_done && l.meeting_count_type === 'YES' && !l.is_pending
   );
 
   const countNoLeads = leads.filter(
@@ -79,13 +83,13 @@ export const MeetingsKanban: React.FC<MeetingsKanbanProps> = ({ onSelectLead }) 
     return allMeetingLeads.filter((l) => {
       // Filter by status
       if (statusFilter === 'scheduled') {
-        const isSched = l.is_meeting_scheduled && !l.is_meeting_done && l.meeting_date && new Date(`${l.meeting_date}T${l.meeting_time || '23:59'}:00`).getTime() >= now.getTime() - 15 * 60 * 1000;
+        const isSched = l.is_meeting_scheduled && !l.is_meeting_done && !l.is_pending && !l.meeting_count_type && l.meeting_date && new Date(`${l.meeting_date}T${l.meeting_time || '23:59'}:00`).getTime() >= now.getTime() - 15 * 60 * 1000;
         if (!isSched) return false;
       } else if (statusFilter === 'missed') {
-        const isMiss = l.is_meeting_scheduled && !l.is_meeting_done && l.meeting_date && new Date(`${l.meeting_date}T${l.meeting_time || '23:59'}:00`).getTime() < now.getTime() - 15 * 60 * 1000;
+        const isMiss = l.is_meeting_scheduled && !l.is_meeting_done && !l.is_pending && !l.meeting_count_type && l.meeting_date && new Date(`${l.meeting_date}T${l.meeting_time || '23:59'}:00`).getTime() < now.getTime() - 15 * 60 * 1000;
         if (!isMiss) return false;
       } else if (statusFilter === 'count_yes') {
-        if (!(l.is_meeting_done && l.meeting_count_type === 'YES')) return false;
+        if (!(l.is_meeting_done && l.meeting_count_type === 'YES' && !l.is_pending)) return false;
       } else if (statusFilter === 'count_no') {
         if (!(l.is_meeting_done && l.meeting_count_type === 'NO')) return false;
       } else if (statusFilter === 'pending') {
@@ -136,22 +140,40 @@ export const MeetingsKanban: React.FC<MeetingsKanbanProps> = ({ onSelectLead }) 
 
     if (!leadId) return;
 
+    const lead = leads.find((l) => l.id === leadId);
+    const nowIso = new Date().toISOString();
+
     if (targetColumn === 'count_yes') {
-      await setMeetingCount(leadId, 'YES');
+      await updateLead(leadId, {
+        is_meeting_done: true,
+        meeting_done_at: lead?.meeting_done_at || nowIso,
+        meeting_count_type: 'YES',
+        meeting_count_at: lead?.meeting_count_at || nowIso,
+        is_pending: false,
+        pending_at: null,
+      }, 'Marked Meeting Count YES');
     } else if (targetColumn === 'count_no') {
-      await setMeetingCount(leadId, 'NO');
+      await updateLead(leadId, {
+        is_meeting_done: true,
+        meeting_done_at: lead?.meeting_done_at || nowIso,
+        meeting_count_type: 'NO',
+        meeting_count_at: lead?.meeting_count_at || nowIso,
+        is_pending: false,
+        pending_at: null,
+      }, 'Marked Meeting Count NO');
     } else if (targetColumn === 'pending') {
-      const lead = leads.find((l) => l.id === leadId);
       if (lead && lead.meeting_count_type === 'NO') {
         alert('Validation Error: Meeting Count NO can never be Pending.');
         return;
       }
-      if (!lead?.is_meeting_done) {
-        await setMeetingCount(leadId, 'YES');
-        await togglePending(leadId, true);
-      } else {
-        await togglePending(leadId, true);
-      }
+      await updateLead(leadId, {
+        is_meeting_done: true,
+        meeting_done_at: lead?.meeting_done_at || nowIso,
+        meeting_count_type: 'YES',
+        meeting_count_at: lead?.meeting_count_at || nowIso,
+        is_pending: true,
+        pending_at: nowIso,
+      }, 'Moved to Pending YES');
     } else if (targetColumn === 'scheduled' || targetColumn === 'missed') {
       setRescheduleLeadId(leadId);
     }
