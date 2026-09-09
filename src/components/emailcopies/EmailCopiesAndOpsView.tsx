@@ -24,11 +24,17 @@ import {
   Tag,
   CheckSquare,
   Square,
-  Clock
+  Clock,
+  Bell
 } from 'lucide-react';
 import { useLeads } from '../../context/LeadContext';
 import { useAuth } from '../../context/AuthContext';
 import { EmailCopy, ImportantNote, TaskItem } from '../../types';
+import {
+  getNotificationPermission,
+  requestNotificationPermission,
+  showDesktopNotification
+} from '../../lib/notifications';
 
 export const EmailCopiesAndOpsView: React.FC = () => {
   const {
@@ -267,6 +273,21 @@ export const EmailCopiesAndOpsView: React.FC = () => {
   const [quickTaskTitle, setQuickTaskTitle] = useState('');
   const [quickTaskPriority, setQuickTaskPriority] = useState<'High' | 'Medium' | 'Low'>('Medium');
   const [quickTaskCategory, setQuickTaskCategory] = useState('Outreach');
+  const [quickTaskDueDate, setQuickTaskDueDate] = useState('');
+  const [quickTaskDueTime, setQuickTaskDueTime] = useState('');
+  const [desktopNotifPermission, setDesktopNotifPermission] = useState<NotificationPermission>(() =>
+    getNotificationPermission()
+  );
+
+  const handleEnableDesktopNotifs = async () => {
+    const perm = await requestNotificationPermission();
+    setDesktopNotifPermission(perm);
+    if (perm === 'granted') {
+      showDesktopNotification('Desktop Notifications Active 🔔', {
+        body: 'You will now receive realtime alerts when your To-Do Tasks and Lead Follow-ups are due.',
+      });
+    }
+  };
 
   const handleCreateTask = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -276,10 +297,14 @@ export const EmailCopiesAndOpsView: React.FC = () => {
       title: quickTaskTitle.trim(),
       priority: quickTaskPriority,
       category: quickTaskCategory,
+      due_date: quickTaskDueDate.trim() || undefined,
+      due_time: quickTaskDueTime.trim() || undefined,
       is_completed: false,
       assigned_to: currentUser?.full_name || 'Ruhit (Owner)',
     });
     setQuickTaskTitle('');
+    setQuickTaskDueDate('');
+    setQuickTaskDueTime('');
   };
 
   const filteredTasks = useMemo(() => {
@@ -718,7 +743,7 @@ export const EmailCopiesAndOpsView: React.FC = () => {
 
           {/* RIGHT: TO DO LIST (5 Cols) */}
           <div className="lg:col-span-5 space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div>
                 <h3 className="font-bold text-white text-sm flex items-center gap-2">
                   <CheckSquare className="w-4 h-4 text-[#00E5A0]" />
@@ -729,21 +754,43 @@ export const EmailCopiesAndOpsView: React.FC = () => {
                 </p>
               </div>
 
-              {/* Task Filter Tabs */}
-              <div className="flex items-center space-x-1 bg-[#111827] p-1 rounded-lg border border-[#1E3A5F] text-[11px]">
-                {(['Pending', 'Completed', 'All'] as const).map((tf) => (
-                  <button
-                    key={tf}
-                    onClick={() => setTaskFilter(tf)}
-                    className={`px-2 py-0.5 rounded font-medium transition-all ${
-                      taskFilter === tf
-                        ? 'bg-[#00E5A0] text-black font-semibold'
-                        : 'text-[#94A3B8] hover:text-white'
-                    }`}
-                  >
-                    {tf}
-                  </button>
-                ))}
+              {/* Notification toggle & Task Filter Tabs */}
+              <div className="flex items-center space-x-2">
+                <button
+                  type="button"
+                  onClick={handleEnableDesktopNotifs}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-all border ${
+                    desktopNotifPermission === 'granted'
+                      ? 'bg-[#00E5A0]/10 border-[#00E5A0]/40 text-[#00E5A0]'
+                      : 'bg-[#111827] border-[#00C2FF]/40 text-[#00C2FF] hover:bg-[#00C2FF]/10'
+                  }`}
+                  title={
+                    desktopNotifPermission === 'granted'
+                      ? 'Desktop notifications are active'
+                      : 'Click to enable realtime desktop notifications for tasks & follow-ups'
+                  }
+                >
+                  <Bell className="w-3.5 h-3.5" />
+                  <span>
+                    {desktopNotifPermission === 'granted' ? 'Alerts Active' : 'Enable Desktop Alerts'}
+                  </span>
+                </button>
+
+                <div className="flex items-center space-x-1 bg-[#111827] p-1 rounded-lg border border-[#1E3A5F] text-[11px]">
+                  {(['Pending', 'Completed', 'All'] as const).map((tf) => (
+                    <button
+                      key={tf}
+                      onClick={() => setTaskFilter(tf)}
+                      className={`px-2 py-0.5 rounded font-medium transition-all ${
+                        taskFilter === tf
+                          ? 'bg-[#00E5A0] text-black font-semibold'
+                          : 'text-[#94A3B8] hover:text-white'
+                      }`}
+                    >
+                      {tf}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
 
@@ -752,7 +799,14 @@ export const EmailCopiesAndOpsView: React.FC = () => {
               onSubmit={handleCreateTask}
               className="p-3 bg-[#111827] border border-[#00C2FF]/40 rounded-xl space-y-2 text-xs"
             >
-              <div className="font-semibold text-white text-xs">Quick Add Task</div>
+              <div className="flex items-center justify-between">
+                <div className="font-semibold text-white text-xs">Quick Add Task</div>
+                {desktopNotifPermission !== 'granted' && (
+                  <span className="text-[10px] text-[#FFB800] flex items-center gap-1">
+                    <Bell className="w-3 h-3" /> Enable alerts above for sound/desktop popups
+                  </span>
+                )}
+              </div>
               <input
                 type="text"
                 placeholder="What needs to be done? (Press Enter)..."
@@ -760,31 +814,61 @@ export const EmailCopiesAndOpsView: React.FC = () => {
                 onChange={(e) => setQuickTaskTitle(e.target.value)}
                 className="w-full bg-[#0A0A0A] border border-[#1E3A5F] rounded-lg px-3 py-1.5 text-white focus:border-[#00C2FF] focus:outline-none"
               />
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center space-x-2">
-                  <select
-                    value={quickTaskPriority}
-                    onChange={(e) => setQuickTaskPriority(e.target.value as any)}
-                    className="bg-[#0A0A0A] text-white border border-[#1E3A5F] rounded px-2 py-1 text-[11px] focus:outline-none"
-                  >
-                    <option value="High">Priority: High 🔥</option>
-                    <option value="Medium">Priority: Medium ⚡</option>
-                    <option value="Low">Priority: Low ❄️</option>
-                  </select>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <select
+                  value={quickTaskPriority}
+                  onChange={(e) => setQuickTaskPriority(e.target.value as any)}
+                  className="bg-[#0A0A0A] text-white border border-[#1E3A5F] rounded px-2 py-1 text-[11px] focus:outline-none"
+                >
+                  <option value="High">Priority: High 🔥</option>
+                  <option value="Medium">Priority: Medium ⚡</option>
+                  <option value="Low">Priority: Low ❄️</option>
+                </select>
 
-                  <select
-                    value={quickTaskCategory}
-                    onChange={(e) => setQuickTaskCategory(e.target.value)}
-                    className="bg-[#0A0A0A] text-white border border-[#1E3A5F] rounded px-2 py-1 text-[11px] focus:outline-none"
-                  >
-                    <option value="Outreach">Outreach</option>
-                    <option value="Deliverability">Deliverability</option>
-                    <option value="Follow-up">Follow-up</option>
-                    <option value="Account Setup">Account Setup</option>
-                    <option value="Lead Gen">Lead Gen</option>
-                  </select>
+                <select
+                  value={quickTaskCategory}
+                  onChange={(e) => setQuickTaskCategory(e.target.value)}
+                  className="bg-[#0A0A0A] text-white border border-[#1E3A5F] rounded px-2 py-1 text-[11px] focus:outline-none"
+                >
+                  <option value="Outreach">Outreach</option>
+                  <option value="Deliverability">Deliverability</option>
+                  <option value="Follow-up">Follow-up</option>
+                  <option value="Account Setup">Account Setup</option>
+                  <option value="Lead Gen">Lead Gen</option>
+                </select>
+
+                <div className="relative">
+                  <input
+                    type="date"
+                    value={quickTaskDueDate}
+                    onChange={(e) => setQuickTaskDueDate(e.target.value)}
+                    className="w-full bg-[#0A0A0A] text-white border border-[#1E3A5F] rounded px-2 py-1 text-[11px] focus:outline-none focus:border-[#00C2FF] [color-scheme:dark]"
+                    title="Due Date"
+                  />
                 </div>
 
+                <div className="relative">
+                  <input
+                    type="time"
+                    value={quickTaskDueTime}
+                    onChange={(e) => setQuickTaskDueTime(e.target.value)}
+                    className="w-full bg-[#0A0A0A] text-white border border-[#1E3A5F] rounded px-2 py-1 text-[11px] focus:outline-none focus:border-[#00C2FF] [color-scheme:dark]"
+                    title="Due Time"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between pt-1">
+                <div className="text-[10px] text-[#7B7B7B]">
+                  {quickTaskDueDate ? (
+                    <span className="text-[#00E5A0] flex items-center gap-1 font-mono">
+                      <Clock className="w-3 h-3" />
+                      Alert: {quickTaskDueDate} {quickTaskDueTime ? `@ ${quickTaskDueTime}` : '(09:00)'}
+                    </span>
+                  ) : (
+                    'Set date & time to receive realtime desktop alarm'
+                  )}
+                </div>
                 <button
                   type="submit"
                   className="px-3 py-1 bg-[#00E5A0] text-black font-semibold rounded hover:bg-[#00E5A0]/90 text-xs"
@@ -810,12 +894,19 @@ export const EmailCopiesAndOpsView: React.FC = () => {
                       ? 'text-amber-400 border-amber-500/30 bg-amber-950/20'
                       : 'text-blue-400 border-blue-500/30 bg-blue-950/20';
 
+                  const isOverdue =
+                    !task.is_completed &&
+                    task.due_date &&
+                    new Date(`${task.due_date}T${task.due_time || '23:59:59'}`) < new Date();
+
                   return (
                     <div
                       key={task.id}
                       className={`p-3 rounded-xl border transition-all flex items-start justify-between gap-3 text-xs ${
                         task.is_completed
                           ? 'bg-[#0A0A0A] border-[#1E3A5F]/40 opacity-60'
+                          : isOverdue
+                          ? 'bg-red-950/10 border-red-500/40 hover:border-red-500/60 shadow-sm'
                           : 'bg-[#111827] border-[#1E3A5F] hover:border-[#00C2FF]/40 shadow-sm'
                       }`}
                     >
@@ -849,9 +940,18 @@ export const EmailCopiesAndOpsView: React.FC = () => {
                               {task.category}
                             </span>
                             {task.due_date && (
-                              <span className="text-[10px] text-[#7B7B7B] font-mono flex items-center gap-1">
+                              <span
+                                className={`text-[10px] font-mono flex items-center gap-1 px-1.5 py-0.5 rounded border ${
+                                  isOverdue
+                                    ? 'text-red-400 border-red-500/30 bg-red-950/30'
+                                    : 'text-[#00C2FF] border-[#00C2FF]/30 bg-[#00C2FF]/10'
+                                }`}
+                              >
                                 <Clock className="w-2.5 h-2.5" />
-                                <span>Due {task.due_date}</span>
+                                <span>
+                                  Due {task.due_date} {task.due_time ? `@ ${task.due_time}` : ''}
+                                  {isOverdue && ' (Overdue)'}
+                                </span>
                               </span>
                             )}
                           </div>

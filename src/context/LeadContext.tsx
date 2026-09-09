@@ -485,6 +485,106 @@ export const LeadProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => clearInterval(intervalTimer);
   }, [refreshDataFromCloud]);
 
+  // Realtime Desktop & In-App Notification Engine: alerts when To-Do tasks or lead follow-ups reach their scheduled date and time
+  useEffect(() => {
+    const checkScheduledAlerts = () => {
+      const now = new Date();
+      const nowMs = now.getTime();
+
+      // Track alerted IDs in session to prevent repeat alerts
+      const sessionKey = 'ruhit_alerted_tasks_reminders';
+      let alertedIds = new Set<string>();
+      try {
+        const cached = sessionStorage.getItem(sessionKey);
+        if (cached) alertedIds = new Set(JSON.parse(cached));
+      } catch {}
+
+      let hasNewAlerts = false;
+
+      // 1. Check Operations To-Do Tasks
+      todoTasks.forEach((task) => {
+        if (task.is_completed || task.alerted || alertedIds.has(task.id)) return;
+        if (!task.due_date) return;
+
+        const timeStr = task.due_time || '09:00';
+        const taskDateTime = new Date(`${task.due_date}T${timeStr}:00`);
+        if (isNaN(taskDateTime.getTime())) return;
+
+        const diffMs = nowMs - taskDateTime.getTime();
+        // Fire if due time has arrived (within a 3-hour window)
+        if (diffMs >= 0 && diffMs <= 3 * 60 * 60 * 1000) {
+          showDesktopNotification(`Task Due: ${task.title}`, {
+            body: `Priority: ${task.priority} (${task.category})\nScheduled for ${task.due_date} at ${timeStr}.`,
+            tag: `task-${task.id}`,
+            requireInteraction: true,
+          });
+
+          // Also insert into in-app notifications
+          const newNotif: InAppNotification = {
+            id: 'notif-task-' + task.id + '-' + Date.now(),
+            title: `To-Do Task Due: ${task.title}`,
+            message: `Priority: ${task.priority} (${task.category}) scheduled for ${task.due_date} at ${timeStr}.`,
+            type: 'reminder',
+            is_read: false,
+            created_at: new Date().toISOString(),
+          };
+          setNotifications((prev) => [newNotif, ...prev]);
+
+          alertedIds.add(task.id);
+          hasNewAlerts = true;
+
+          setTodoTasks((prev) =>
+            prev.map((t) => (t.id === task.id ? { ...t, alerted: true } : t))
+          );
+        }
+      });
+
+      // 2. Check Lead Follow-up Reminders
+      reminders.forEach((rem) => {
+        if (rem.is_completed || alertedIds.has(rem.id)) return;
+        if (!rem.reminder_date || !rem.reminder_time) return;
+
+        const remDateTime = new Date(`${rem.reminder_date}T${rem.reminder_time}:00`);
+        if (isNaN(remDateTime.getTime())) return;
+
+        const diffMs = nowMs - remDateTime.getTime();
+        // Fire if reminder time has arrived (within a 3-hour window)
+        if (diffMs >= 0 && diffMs <= 3 * 60 * 60 * 1000) {
+          const leadName = rem.lead_name || rem.lead_company || 'Prospect';
+          showDesktopNotification(`Follow-Up Due: ${leadName}`, {
+            body: `${rem.reminder_type}: ${rem.note || 'Follow-up is due now.'}\nTime: ${rem.reminder_date} at ${rem.reminder_time}`,
+            tag: `rem-${rem.id}`,
+            requireInteraction: true,
+          });
+
+          const newNotif: InAppNotification = {
+            id: 'notif-rem-' + rem.id + '-' + Date.now(),
+            lead_id: rem.lead_id,
+            title: `Follow-Up Due: ${leadName}`,
+            message: `${rem.reminder_type} scheduled for ${rem.reminder_date} at ${rem.reminder_time}. ${rem.note || ''}`,
+            type: 'follow_up_due',
+            is_read: false,
+            created_at: new Date().toISOString(),
+          };
+          setNotifications((prev) => [newNotif, ...prev]);
+
+          alertedIds.add(rem.id);
+          hasNewAlerts = true;
+        }
+      });
+
+      if (hasNewAlerts) {
+        try {
+          sessionStorage.setItem(sessionKey, JSON.stringify(Array.from(alertedIds)));
+        } catch {}
+      }
+    };
+
+    checkScheduledAlerts();
+    const alertInterval = setInterval(checkScheduledAlerts, 10000); // Check every 10s
+    return () => clearInterval(alertInterval);
+  }, [todoTasks, reminders]);
+
   const recordActivityInternal = async (
     leadId: string,
     type: LeadActivity['activity_type'],

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, UserPlus, Check, Sparkles, Flag, Calendar, Phone, Copy } from 'lucide-react';
 import { useLeads } from '../../context/LeadContext';
 import { useAuth } from '../../context/AuthContext';
@@ -13,6 +13,12 @@ export const AddLeadModal: React.FC<AddLeadModalProps> = ({ isOpen, onClose }) =
   const { addLead, brands, accounts, campaigns, lists } = useLeads();
   const { allUsers, currentUser } = useAuth();
 
+  const todayFormatted = new Date().toLocaleDateString('en-GB', {
+    day: '2-digit',
+    month: '2-digit',
+    year: '2-digit'
+  });
+
   const [email, setEmail] = useState('');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -23,9 +29,9 @@ export const AddLeadModal: React.FC<AddLeadModalProps> = ({ isOpen, onClose }) =
   const [country, setCountry] = useState('United Kingdom');
   const [city, setCity] = useState('');
   const [priority, setPriority] = useState<Priority>('High');
-  const [campaignId, setCampaignId] = useState(campaigns[0]?.id || '');
-  const [brandId, setBrandId] = useState(brands[0]?.id || '');
-  const [accountId, setAccountId] = useState(accounts[0]?.id || '');
+  const [campaignId, setCampaignId] = useState('');
+  const [brandId, setBrandId] = useState('');
+  const [accountId, setAccountId] = useState('');
   const [assignedUserId, setAssignedUserId] = useState(currentUser?.id || 'usr-ruhit-owner');
   const [notes, setNotes] = useState('');
 
@@ -36,17 +42,56 @@ export const AddLeadModal: React.FC<AddLeadModalProps> = ({ isOpen, onClose }) =
   const [interestedEmailFollowup, setInterestedEmailFollowup] = useState<string>('none');
 
   // Dispatch dates
-  const todayFormatted = new Date().toLocaleDateString('en-GB', {
-    day: '2-digit',
-    month: '2-digit',
-    year: '2-digit'
-  });
   const [email1Date, setEmail1Date] = useState(todayFormatted);
   const [email2Date, setEmail2Date] = useState('');
   const [email3Date, setEmail3Date] = useState('');
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
+
+  const resetForm = () => {
+    setEmail('');
+    setFirstName('');
+    setLastName('');
+    setCompanyName('');
+    setWhatsappNumber('');
+    setAlternativePhone('');
+    setSelectedListId('');
+    setCountry('United Kingdom');
+    setCity('');
+    setPriority('High');
+    setCampaignId(campaigns[0]?.id || '');
+    
+    // Auto-select brand corresponding to the default account if available
+    const defaultAcc = accounts[0];
+    const initialBrandId = defaultAcc?.brand_id || brands[0]?.id || '';
+    setAccountId(defaultAcc?.id || '');
+    setBrandId(initialBrandId);
+
+    setAssignedUserId(currentUser?.id || 'usr-ruhit-owner');
+    setNotes('');
+    setPipelineStage('outreach');
+    setIsPendingYes(false);
+    setWhatsappFollowup('none');
+    setInterestedEmailFollowup('none');
+    setEmail1Date(todayFormatted);
+    setEmail2Date('');
+    setEmail3Date('');
+    setError('');
+    setIsSubmitting(false);
+  };
+
+  // Reset form to completely blank defaults every time the modal is opened
+  useEffect(() => {
+    if (isOpen) {
+      resetForm();
+    }
+  }, [isOpen]);
+
+  const handleClose = () => {
+    resetForm();
+    onClose();
+  };
 
   if (!isOpen) return null;
 
@@ -123,6 +168,7 @@ export const AddLeadModal: React.FC<AddLeadModalProps> = ({ isOpen, onClose }) =
         tags: [],
       });
 
+      resetForm();
       onClose();
     } catch (err: any) {
       setError(err?.message || 'Failed to save lead.');
@@ -148,7 +194,7 @@ export const AddLeadModal: React.FC<AddLeadModalProps> = ({ isOpen, onClose }) =
             </div>
           </div>
           <button
-            onClick={onClose}
+            onClick={handleClose}
             className="p-1 text-[#7B7B7B] hover:text-white rounded hover:bg-[#1E3A5F]/40"
           >
             <X className="w-5 h-5" />
@@ -315,11 +361,51 @@ export const AddLeadModal: React.FC<AddLeadModalProps> = ({ isOpen, onClose }) =
               </select>
             </div>
 
-            {/* Brand Approached */}
+            {/* Outbound Account */}
             <div>
               <label className="text-[11px] font-semibold text-white block mb-1">
-                Brand Approached
+                Outbound Account
               </label>
+              <select
+                value={accountId}
+                onChange={(e) => {
+                  const selectedAccId = e.target.value;
+                  setAccountId(selectedAccId);
+                  const matchedAcc = accounts.find((a) => a.id === selectedAccId);
+                  if (matchedAcc?.brand_id) {
+                    setBrandId(matchedAcc.brand_id);
+                  } else if (matchedAcc?.brand_name) {
+                    const foundBrand = brands.find(
+                      (b) => b.name.toLowerCase() === matchedAcc.brand_name?.toLowerCase()
+                    );
+                    if (foundBrand) {
+                      setBrandId(foundBrand.id);
+                    }
+                  }
+                }}
+                className="w-full bg-[#111827] border border-[#1E3A5F] rounded-lg px-3 py-2 text-xs text-white focus:border-[#00C2FF] focus:outline-none"
+              >
+                <option value="">None / Select</option>
+                {accounts.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.account_name} ({a.sender_name})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Brand Approached */}
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-[11px] font-semibold text-white">
+                  Brand Approached
+                </label>
+                {accountId && (
+                  <span className="text-[10px] text-[#00E5A0] font-mono">
+                    Auto-selected with Account
+                  </span>
+                )}
+              </div>
               <select
                 value={brandId}
                 onChange={(e) => setBrandId(e.target.value)}
@@ -329,25 +415,6 @@ export const AddLeadModal: React.FC<AddLeadModalProps> = ({ isOpen, onClose }) =
                 {brands.map((b) => (
                   <option key={b.id} value={b.id}>
                     {b.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Outbound Account */}
-            <div>
-              <label className="text-[11px] font-semibold text-white block mb-1">
-                Outbound Account
-              </label>
-              <select
-                value={accountId}
-                onChange={(e) => setAccountId(e.target.value)}
-                className="w-full bg-[#111827] border border-[#1E3A5F] rounded-lg px-3 py-2 text-xs text-white focus:border-[#00C2FF] focus:outline-none"
-              >
-                <option value="">None / Select</option>
-                {accounts.map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.account_name} ({a.sender_name})
                   </option>
                 ))}
               </select>
@@ -537,7 +604,7 @@ export const AddLeadModal: React.FC<AddLeadModalProps> = ({ isOpen, onClose }) =
           <div className="pt-2 flex items-center justify-end space-x-2 border-t border-[#1E3A5F]">
             <button
               type="button"
-              onClick={onClose}
+              onClick={handleClose}
               className="px-3.5 py-1.5 rounded-lg border border-[#1E3A5F] text-[#94A3B8] hover:text-white transition-colors"
             >
               Cancel

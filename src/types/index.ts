@@ -342,9 +342,11 @@ export interface TaskItem {
   category: string; // 'Outreach', 'Follow-up', 'Account Setup', 'Lead Gen', 'General'
   priority: 'High' | 'Medium' | 'Low';
   is_completed: boolean;
-  due_date?: string;
+  due_date?: string; // YYYY-MM-DD
+  due_time?: string; // HH:mm
   assigned_to?: string;
   created_at: string;
   completed_at?: string;
+  alerted?: boolean;
 }
 
