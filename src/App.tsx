@@ -12,6 +12,7 @@ import { RemindersView } from './components/reminders/RemindersView';
 import { TimeZoneConverterView } from './components/timezone/TimeZoneConverterView';
 import { SettingsView } from './components/settings/SettingsView';
 import { EmailCopiesAndOpsView } from './components/emailcopies/EmailCopiesAndOpsView';
+import { LeadCollectionDashboardView } from './components/leadcollection/LeadCollectionDashboardView';
 import { AddLeadModal } from './components/leads/AddLeadModal';
 import { LeadImportModal } from './components/leads/LeadImportModal';
 import { LeadDetailModal } from './components/leads/LeadDetailModal';
@@ -105,6 +106,10 @@ const AppContent: React.FC = () => {
 
             {currentTab === 'email_copies' && permissions.can_manage_email_copies && (
               <EmailCopiesAndOpsView />
+            )}
+
+            {currentTab === 'lead_collection' && (permissions.can_manage_lead_collections ?? true) && (
+              <LeadCollectionDashboardView />
             )}
 
             {currentTab === 'settings' && permissions.can_manage_settings && <SettingsView />}

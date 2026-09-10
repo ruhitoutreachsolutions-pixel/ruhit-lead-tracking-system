@@ -16,6 +16,12 @@ import {
   EmailCopy,
   ImportantNote,
   TaskItem,
+  CollectionKeywordSet,
+  CollectionKeyword,
+  CollectionLocation,
+  CollectionBatch,
+  CollectionBatchLocation,
+  CollectionBatchStatus,
 } from '../types';
 import {
   INITIAL_LEADS,
@@ -31,6 +37,10 @@ import {
   INITIAL_EMAIL_COPIES,
   INITIAL_IMPORTANT_NOTES,
   INITIAL_TODO_TASKS,
+  INITIAL_COLLECTION_KEYWORD_SETS,
+  INITIAL_COLLECTION_KEYWORDS,
+  INITIAL_COLLECTION_LOCATIONS,
+  INITIAL_COLLECTION_BATCHES,
 } from '../lib/mockData';
 import { getSupabase, getSupabaseConfig } from '../lib/supabase';
 import { showDesktopNotification } from '../lib/notifications';
@@ -126,6 +136,28 @@ export interface LeadContextType {
   toggleTodoTask: (id: string) => Promise<void>;
   updateTodoTask: (id: string, updates: Partial<TaskItem>) => Promise<void>;
   deleteTodoTask: (id: string) => Promise<void>;
+
+  // Lead List Collection / Command Center
+  keywordSets: CollectionKeywordSet[];
+  keywords: CollectionKeyword[];
+  locations: CollectionLocation[];
+  collectionBatches: CollectionBatch[];
+  batchLocations: CollectionBatchLocation[];
+  addKeywordSet: (name: string, description?: string, initialKeywords?: string[]) => Promise<CollectionKeywordSet>;
+  updateKeywordSet: (id: string, updates: Partial<CollectionKeywordSet>) => Promise<void>;
+  deleteKeywordSet: (id: string) => Promise<{ success: boolean; message?: string }>;
+  addKeywordsToSet: (setId: string, rawKeywords: string[]) => Promise<{ addedCount: number; duplicatesCount: number }>;
+  deleteKeyword: (id: string) => Promise<void>;
+  bulkImportLocations: (rawList: string[], defaultCountry?: string) => Promise<{ importedCount: number; duplicatesCount: number }>;
+  addSingleLocation: (data: { city: string; region?: string; country: string }) => Promise<CollectionLocation>;
+  updateLocation: (id: string, updates: Partial<CollectionLocation>) => Promise<void>;
+  deleteLocation: (id: string) => Promise<void>;
+  getNextAvailableLocations: (country: string, keywordSetId?: string, count?: number) => CollectionLocation[];
+  checkLocationOverlap: (locationIds: string[]) => { overlapping: CollectionLocation[]; activeBatch?: CollectionBatch };
+  createCollectionBatch: (params: { name?: string; keywordSetId: string; country: string; locationIds: string[]; notes?: string; bypassOverlap?: boolean }) => Promise<{ success: boolean; batch?: CollectionBatch; error?: string }>;
+  startCollectionBatch: (batchId: string) => Promise<void>;
+  completeCollectionBatch: (batchId: string, leadsCollected: number, notes?: string, isPartial?: boolean, completedLocationIds?: string[]) => Promise<void>;
+  cancelCollectionBatch: (batchId: string, reason?: string) => Promise<void>;
 
   markNotificationRead: (id: string) => void;
   markAllNotificationsRead: () => void;
@@ -246,6 +278,47 @@ export const LeadProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return isDbInit ? [] : INITIAL_TODO_TASKS;
   });
 
+  // Lead Collection State Hooks
+  const [keywordSets, setKeywordSets] = useState<CollectionKeywordSet[]>(() => {
+    const saved = localStorage.getItem('ruhit_local_keyword_sets');
+    if (saved) {
+      try { return JSON.parse(saved); } catch {}
+    }
+    return isDbInit ? [] : INITIAL_COLLECTION_KEYWORD_SETS;
+  });
+
+  const [keywords, setKeywords] = useState<CollectionKeyword[]>(() => {
+    const saved = localStorage.getItem('ruhit_local_keywords');
+    if (saved) {
+      try { return JSON.parse(saved); } catch {}
+    }
+    return isDbInit ? [] : INITIAL_COLLECTION_KEYWORDS;
+  });
+
+  const [locations, setLocations] = useState<CollectionLocation[]>(() => {
+    const saved = localStorage.getItem('ruhit_local_locations');
+    if (saved) {
+      try { return JSON.parse(saved); } catch {}
+    }
+    return isDbInit ? [] : INITIAL_COLLECTION_LOCATIONS;
+  });
+
+  const [collectionBatches, setCollectionBatches] = useState<CollectionBatch[]>(() => {
+    const saved = localStorage.getItem('ruhit_local_collection_batches');
+    if (saved) {
+      try { return JSON.parse(saved); } catch {}
+    }
+    return isDbInit ? [] : INITIAL_COLLECTION_BATCHES;
+  });
+
+  const [batchLocations, setBatchLocations] = useState<CollectionBatchLocation[]>(() => {
+    const saved = localStorage.getItem('ruhit_local_batch_locations');
+    if (saved) {
+      try { return JSON.parse(saved); } catch {}
+    }
+    return [];
+  });
+
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [cloudStatus, setCloudStatus] = useState<'connected' | 'demo' | 'error' | 'syncing'>('demo');
   const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
@@ -361,6 +434,47 @@ export const LeadProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.setItem('ruhit_db_initialized', 'true');
   }, [todoTasks, isHydrated]);
 
+  // Lead Collection Persistence Effects
+  useEffect(() => {
+    if (!isHydrated) return;
+    saveCollection(STORES.COLLECTION_KEYWORD_SETS, keywordSets);
+    try {
+      localStorage.setItem('ruhit_local_keyword_sets', JSON.stringify(keywordSets));
+    } catch {}
+  }, [keywordSets, isHydrated]);
+
+  useEffect(() => {
+    if (!isHydrated) return;
+    saveCollection(STORES.COLLECTION_KEYWORDS, keywords);
+    try {
+      localStorage.setItem('ruhit_local_keywords', JSON.stringify(keywords));
+    } catch {}
+  }, [keywords, isHydrated]);
+
+  useEffect(() => {
+    if (!isHydrated) return;
+    saveCollection(STORES.COLLECTION_LOCATIONS, locations);
+    try {
+      localStorage.setItem('ruhit_local_locations', JSON.stringify(locations));
+    } catch {}
+  }, [locations, isHydrated]);
+
+  useEffect(() => {
+    if (!isHydrated) return;
+    saveCollection(STORES.COLLECTION_BATCHES, collectionBatches);
+    try {
+      localStorage.setItem('ruhit_local_collection_batches', JSON.stringify(collectionBatches));
+    } catch {}
+  }, [collectionBatches, isHydrated]);
+
+  useEffect(() => {
+    if (!isHydrated) return;
+    saveCollection(STORES.COLLECTION_BATCH_LOCATIONS, batchLocations);
+    try {
+      localStorage.setItem('ruhit_local_batch_locations', JSON.stringify(batchLocations));
+    } catch {}
+  }, [batchLocations, isHydrated]);
+
   // Hydrate from IndexedDB on startup
   useEffect(() => {
     const hydrateLocalCache = async () => {
@@ -379,6 +493,11 @@ export const LeadProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const cachedCopies = await loadCollection<EmailCopy>(STORES.EMAIL_COPIES);
         const cachedNotes = await loadCollection<ImportantNote>(STORES.NOTES);
         const cachedTasks = await loadCollection<TaskItem>(STORES.TASKS);
+        const cachedSets = await loadCollection<CollectionKeywordSet>(STORES.COLLECTION_KEYWORD_SETS);
+        const cachedKeywords = await loadCollection<CollectionKeyword>(STORES.COLLECTION_KEYWORDS);
+        const cachedLocs = await loadCollection<CollectionLocation>(STORES.COLLECTION_LOCATIONS);
+        const cachedBatches = await loadCollection<CollectionBatch>(STORES.COLLECTION_BATCHES);
+        const cachedBatchLocs = await loadCollection<CollectionBatchLocation>(STORES.COLLECTION_BATCH_LOCATIONS);
 
         if (isInit) {
           // If already initialized by user, respect cached data completely (even empty array [] if deleted!)
@@ -394,6 +513,11 @@ export const LeadProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (cachedCopies !== undefined) setEmailCopies(cachedCopies);
           if (cachedNotes !== undefined) setImportantNotes(cachedNotes);
           if (cachedTasks !== undefined) setTodoTasks(cachedTasks);
+          if (cachedSets !== undefined && cachedSets.length > 0) setKeywordSets(cachedSets);
+          if (cachedKeywords !== undefined && cachedKeywords.length > 0) setKeywords(cachedKeywords);
+          if (cachedLocs !== undefined && cachedLocs.length > 0) setLocations(cachedLocs);
+          if (cachedBatches !== undefined && cachedBatches.length > 0) setCollectionBatches(cachedBatches);
+          if (cachedBatchLocs !== undefined) setBatchLocations(cachedBatchLocs);
         } else {
           // First time system setup: seed defaults if empty, then mark initialized
           if (cachedLeads && cachedLeads.length > 0) setLeads(cachedLeads);
@@ -405,6 +529,10 @@ export const LeadProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (cachedCopies && cachedCopies.length > 0) setEmailCopies(cachedCopies);
           if (cachedNotes && cachedNotes.length > 0) setImportantNotes(cachedNotes);
           if (cachedTasks && cachedTasks.length > 0) setTodoTasks(cachedTasks);
+          if (cachedSets && cachedSets.length > 0) setKeywordSets(cachedSets);
+          if (cachedKeywords && cachedKeywords.length > 0) setKeywords(cachedKeywords);
+          if (cachedLocs && cachedLocs.length > 0) setLocations(cachedLocs);
+          if (cachedBatches && cachedBatches.length > 0) setCollectionBatches(cachedBatches);
 
           localStorage.setItem('ruhit_db_initialized', 'true');
         }
@@ -451,6 +579,22 @@ export const LeadProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const { data: cBatches } = await supabase.from('mail_merge_batches').select('*');
       if (cBatches) setBatches(cBatches);
 
+      // Fetch Collection Command Center data
+      const { data: cSets } = await supabase.from('collection_keyword_sets').select('*');
+      if (cSets && cSets.length > 0) setKeywordSets(cSets);
+
+      const { data: cKws } = await supabase.from('collection_keywords').select('*');
+      if (cKws && cKws.length > 0) setKeywords(cKws);
+
+      const { data: cLocs } = await supabase.from('collection_locations').select('*');
+      if (cLocs && cLocs.length > 0) setLocations(cLocs);
+
+      const { data: cColBatches } = await supabase.from('collection_batches').select('*').order('created_at', { ascending: false });
+      if (cColBatches) setCollectionBatches(cColBatches);
+
+      const { data: cBatchLocs } = await supabase.from('collection_batch_locations').select('*');
+      if (cBatchLocs) setBatchLocations(cBatchLocs);
+
       setCloudStatus('connected');
       setLastSyncTime(new Date());
       setErrorMessage(null);
@@ -475,6 +619,9 @@ export const LeadProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .channel('lead-portal-realtime')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'leads' }, () => refreshDataFromCloud())
         .on('postgres_changes', { event: '*', schema: 'public', table: 'meetings' }, () => refreshDataFromCloud())
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'collection_batches' }, () => refreshDataFromCloud())
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'collection_locations' }, () => refreshDataFromCloud())
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'collection_keyword_sets' }, () => refreshDataFromCloud())
         .subscribe();
       return () => {
         clearInterval(intervalTimer);
@@ -1309,6 +1456,648 @@ export const LeadProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setTodoTasks((prev) => prev.filter((t) => t.id !== id));
   };
 
+  // ==============================================================================
+  // LEAD LIST COLLECTION / COMMAND CENTER METHODS
+  // ==============================================================================
+
+  const addKeywordSet = async (
+    name: string,
+    description?: string,
+    initialKeywords: string[] = []
+  ): Promise<CollectionKeywordSet> => {
+    const setId = 'ks-' + Date.now() + '-' + Math.random().toString(36).substr(2, 4);
+    const now = new Date().toISOString();
+    const newSet: CollectionKeywordSet = {
+      id: setId,
+      name: name.trim(),
+      description: description?.trim(),
+      status: 'active',
+      created_by: currentUserId,
+      created_by_name: currentUserName,
+      created_at: now,
+      updated_at: now,
+    };
+
+    const newKws: CollectionKeyword[] = initialKeywords
+      .map((k) => k.trim())
+      .filter(Boolean)
+      .map((keyword, idx) => ({
+        id: `kw-${Date.now()}-${idx}-${Math.random().toString(36).substr(2, 4)}`,
+        keyword_set_id: setId,
+        keyword,
+        created_at: now,
+      }));
+
+    setKeywordSets((prev) => [newSet, ...prev]);
+    if (newKws.length > 0) {
+      setKeywords((prev) => [...prev, ...newKws]);
+    }
+
+    const supabase = getSupabase();
+    if (supabase) {
+      try {
+        await supabase.from('collection_keyword_sets').insert([newSet]);
+        if (newKws.length > 0) {
+          await supabase.from('collection_keywords').insert(newKws);
+        }
+      } catch (err) {
+        console.warn('Supabase addKeywordSet notice:', err);
+      }
+    }
+
+    return newSet;
+  };
+
+  const updateKeywordSet = async (id: string, updates: Partial<CollectionKeywordSet>): Promise<void> => {
+    const now = new Date().toISOString();
+    setKeywordSets((prev) =>
+      prev.map((s) => (s.id === id ? { ...s, ...updates, updated_at: now } : s))
+    );
+    const supabase = getSupabase();
+    if (supabase) {
+      try {
+        await supabase.from('collection_keyword_sets').update({ ...updates, updated_at: now }).eq('id', id);
+      } catch (err) {
+        console.warn('Supabase updateKeywordSet notice:', err);
+      }
+    }
+  };
+
+  const deleteKeywordSet = async (id: string): Promise<{ success: boolean; message?: string }> => {
+    const hasBatches = collectionBatches.some((b) => b.keyword_set_id === id);
+    if (hasBatches) {
+      await updateKeywordSet(id, { status: 'archived' });
+      return {
+        success: true,
+        message: 'Keyword set has historical collection batches. It has been archived to protect batch history.',
+      };
+    }
+
+    setKeywordSets((prev) => prev.filter((s) => s.id !== id));
+    setKeywords((prev) => prev.filter((k) => k.keyword_set_id !== id));
+
+    const supabase = getSupabase();
+    if (supabase) {
+      try {
+        await supabase.from('collection_keyword_sets').delete().eq('id', id);
+      } catch (err) {
+        console.warn('Supabase deleteKeywordSet notice:', err);
+      }
+    }
+    return { success: true };
+  };
+
+  const addKeywordsToSet = async (
+    setId: string,
+    rawKeywords: string[]
+  ): Promise<{ addedCount: number; duplicatesCount: number }> => {
+    const existingKws = new Set(
+      keywords
+        .filter((k) => k.keyword_set_id === setId)
+        .map((k) => k.keyword.toLowerCase().trim())
+    );
+
+    let addedCount = 0;
+    let duplicatesCount = 0;
+    const toInsert: CollectionKeyword[] = [];
+    const now = new Date().toISOString();
+
+    for (let i = 0; i < rawKeywords.length; i++) {
+      const clean = rawKeywords[i].trim();
+      if (!clean) continue;
+      const lower = clean.toLowerCase();
+      if (existingKws.has(lower)) {
+        duplicatesCount++;
+      } else {
+        existingKws.add(lower);
+        toInsert.push({
+          id: `kw-${Date.now()}-${i}-${Math.random().toString(36).substr(2, 4)}`,
+          keyword_set_id: setId,
+          keyword: clean,
+          created_at: now,
+        });
+        addedCount++;
+      }
+    }
+
+    if (toInsert.length > 0) {
+      setKeywords((prev) => [...prev, ...toInsert]);
+      const supabase = getSupabase();
+      if (supabase) {
+        try {
+          await supabase.from('collection_keywords').insert(toInsert);
+        } catch (err) {
+          console.warn('Supabase addKeywordsToSet notice:', err);
+        }
+      }
+    }
+
+    return { addedCount, duplicatesCount };
+  };
+
+  const deleteKeyword = async (id: string): Promise<void> => {
+    setKeywords((prev) => prev.filter((k) => k.id !== id));
+    const supabase = getSupabase();
+    if (supabase) {
+      try {
+        await supabase.from('collection_keywords').delete().eq('id', id);
+      } catch (err) {
+        console.warn('Supabase deleteKeyword notice:', err);
+      }
+    }
+  };
+
+  const bulkImportLocations = async (
+    rawList: string[],
+    defaultCountry: string = 'Ireland'
+  ): Promise<{ importedCount: number; duplicatesCount: number }> => {
+    const existingNorm = new Set(locations.map((l) => l.normalized_name.toLowerCase().trim()));
+    let importedCount = 0;
+    let duplicatesCount = 0;
+    const toInsert: CollectionLocation[] = [];
+    const now = new Date().toISOString();
+
+    for (let i = 0; i < rawList.length; i++) {
+      const line = rawList[i].trim();
+      if (!line) continue;
+
+      let city = line;
+      let country = defaultCountry.trim();
+      let region = '';
+
+      if (line.includes(',')) {
+        const parts = line.split(',').map((p) => p.trim()).filter(Boolean);
+        if (parts.length === 2) {
+          city = parts[0];
+          country = parts[1];
+        } else if (parts.length >= 3) {
+          city = parts[0];
+          region = parts[1];
+          country = parts[2];
+        }
+      }
+
+      const normalized = `${city.toLowerCase()}, ${country.toLowerCase()}`;
+      if (existingNorm.has(normalized)) {
+        duplicatesCount++;
+      } else {
+        existingNorm.add(normalized);
+        toInsert.push({
+          id: `loc-${Date.now()}-${i}-${Math.random().toString(36).substr(2, 4)}`,
+          city,
+          region: region || undefined,
+          country,
+          normalized_name: normalized,
+          status: 'available',
+          created_at: now,
+        });
+        importedCount++;
+      }
+    }
+
+    if (toInsert.length > 0) {
+      setLocations((prev) => [...prev, ...toInsert]);
+      const supabase = getSupabase();
+      if (supabase) {
+        try {
+          await supabase.from('collection_locations').insert(toInsert);
+        } catch (err) {
+          console.warn('Supabase bulkImportLocations notice:', err);
+        }
+      }
+    }
+
+    return { importedCount, duplicatesCount };
+  };
+
+  const addSingleLocation = async (data: {
+    city: string;
+    region?: string;
+    country: string;
+  }): Promise<CollectionLocation> => {
+    const city = data.city.trim();
+    const country = data.country.trim();
+    const region = data.region?.trim();
+    const normalized = `${city.toLowerCase()}, ${country.toLowerCase()}`;
+    const newLoc: CollectionLocation = {
+      id: `loc-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+      city,
+      region: region || undefined,
+      country,
+      normalized_name: normalized,
+      status: 'available',
+      created_at: new Date().toISOString(),
+    };
+
+    setLocations((prev) => [...prev, newLoc]);
+    const supabase = getSupabase();
+    if (supabase) {
+      try {
+        await supabase.from('collection_locations').insert([newLoc]);
+      } catch (err) {
+        console.warn('Supabase addSingleLocation notice:', err);
+      }
+    }
+    return newLoc;
+  };
+
+  const updateLocation = async (id: string, updates: Partial<CollectionLocation>): Promise<void> => {
+    setLocations((prev) => prev.map((l) => (l.id === id ? { ...l, ...updates } : l)));
+    const supabase = getSupabase();
+    if (supabase) {
+      try {
+        await supabase.from('collection_locations').update(updates).eq('id', id);
+      } catch (err) {
+        console.warn('Supabase updateLocation notice:', err);
+      }
+    }
+  };
+
+  const deleteLocation = async (id: string): Promise<void> => {
+    setLocations((prev) => prev.filter((l) => l.id !== id));
+    const supabase = getSupabase();
+    if (supabase) {
+      try {
+        await supabase.from('collection_locations').delete().eq('id', id);
+      } catch (err) {
+        console.warn('Supabase deleteLocation notice:', err);
+      }
+    }
+  };
+
+  const getNextAvailableLocations = (
+    country: string,
+    keywordSetId?: string,
+    count: number = 20
+  ): CollectionLocation[] => {
+    const targetCountry = country.trim().toLowerCase();
+
+    // 1. Gather location IDs in any currently ACTIVE batch (ready or in_progress)
+    const activeLocationIds = new Set<string>();
+    collectionBatches.forEach((b) => {
+      if (b.status === 'ready' || b.status === 'in_progress') {
+        b.locations?.forEach((bl) => activeLocationIds.add(bl.location_id));
+      }
+    });
+
+    // 2. If keywordSetId specified, gather location IDs in COMPLETED batches for THIS specific keyword set
+    const completedForSetIds = new Set<string>();
+    if (keywordSetId) {
+      collectionBatches.forEach((b) => {
+        if (b.status === 'completed' && b.keyword_set_id === keywordSetId) {
+          b.locations?.forEach((bl) => {
+            if (bl.status === 'completed' || bl.status === 'pending') {
+              completedForSetIds.add(bl.location_id);
+            }
+          });
+        }
+      });
+    }
+
+    // 3. Filter candidates
+    return locations
+      .filter((loc) => {
+        if (loc.country.trim().toLowerCase() !== targetCountry) return false;
+        if (loc.status === 'claimed' || loc.status === 'in_progress') return false;
+        if (activeLocationIds.has(loc.id)) return false;
+        if (completedForSetIds.has(loc.id)) return false;
+        return true;
+      })
+      .slice(0, count);
+  };
+
+  const checkLocationOverlap = (
+    locationIds: string[]
+  ): { overlapping: CollectionLocation[]; activeBatch?: CollectionBatch } => {
+    const locSet = new Set(locationIds);
+    let activeBatch: CollectionBatch | undefined;
+
+    const activeBatchMap = new Map<string, CollectionBatch>();
+    collectionBatches.forEach((b) => {
+      if (b.status === 'ready' || b.status === 'in_progress') {
+        b.locations?.forEach((bl) => {
+          activeBatchMap.set(bl.location_id, b);
+        });
+      }
+    });
+
+    const overlapping: CollectionLocation[] = [];
+    locations.forEach((loc) => {
+      if (locSet.has(loc.id)) {
+        if (activeBatchMap.has(loc.id)) {
+          overlapping.push(loc);
+          if (!activeBatch) activeBatch = activeBatchMap.get(loc.id);
+        } else if (loc.status === 'claimed' || loc.status === 'in_progress') {
+          overlapping.push(loc);
+        }
+      }
+    });
+
+    return { overlapping, activeBatch };
+  };
+
+  const createCollectionBatch = async (params: {
+    name?: string;
+    keywordSetId: string;
+    country: string;
+    locationIds: string[];
+    notes?: string;
+    bypassOverlap?: boolean;
+  }): Promise<{ success: boolean; batch?: CollectionBatch; error?: string }> => {
+    const { keywordSetId, country, locationIds, notes, bypassOverlap } = params;
+
+    if (!locationIds || locationIds.length === 0) {
+      return { success: false, error: 'Please select at least one location for this collection batch.' };
+    }
+
+    // Check overlap
+    if (!bypassOverlap) {
+      const { overlapping, activeBatch } = checkLocationOverlap(locationIds);
+      if (overlapping.length > 0) {
+        return {
+          success: false,
+          error: `${overlapping.length} location(s) are already claimed in active ${activeBatch?.batch_number || 'batch'}. Please choose available locations or request Admin override.`,
+        };
+      }
+    }
+
+    const kwSet = keywordSets.find((s) => s.id === keywordSetId);
+    const setKeywords = keywords.filter((k) => k.keyword_set_id === keywordSetId).map((k) => k.keyword);
+    const kwCount = setKeywords.length || 1;
+    const locCount = locationIds.length;
+    const combCount = kwCount * locCount;
+
+    const batchId = 'batch-col-' + Date.now() + '-' + Math.random().toString(36).substr(2, 4);
+    const batchNumber = `BATCH-${1000 + collectionBatches.length + 1}`;
+    const setName = kwSet?.name || 'Custom Keyword Set';
+    const batchName = params.name?.trim() || `${setName} — ${country} — ${locCount} Locations`;
+
+    const selectedLocs = locations.filter((l) => locationIds.includes(l.id));
+
+    const batchLocationsToCreate: CollectionBatchLocation[] = selectedLocs.map((loc) => ({
+      id: `cbl-${Date.now()}-${loc.id}`,
+      batch_id: batchId,
+      location_id: loc.id,
+      city: loc.city,
+      country: loc.country,
+      status: 'pending',
+    }));
+
+    const now = new Date().toISOString();
+    const newBatch: CollectionBatch = {
+      id: batchId,
+      batch_number: batchNumber,
+      batch_name: batchName,
+      keyword_set_id: keywordSetId,
+      keyword_set_name: setName,
+      country,
+      status: 'ready',
+      keyword_count: kwCount,
+      location_count: locCount,
+      combination_count: combCount,
+      leads_collected: 0,
+      notes: notes?.trim() || '',
+      created_by: currentUserId,
+      created_by_name: currentUserName,
+      keywords: setKeywords,
+      locations: batchLocationsToCreate,
+      created_at: now,
+      updated_at: now,
+    };
+
+    // Mark selected locations as 'claimed'
+    setLocations((prev) =>
+      prev.map((l) => (locationIds.includes(l.id) ? { ...l, status: 'claimed' } : l))
+    );
+
+    setCollectionBatches((prev) => [newBatch, ...prev]);
+    setBatchLocations((prev) => [...prev, ...batchLocationsToCreate]);
+
+    const supabase = getSupabase();
+    if (supabase) {
+      try {
+        await supabase.from('collection_batches').insert([
+          {
+            id: newBatch.id,
+            batch_number: newBatch.batch_number,
+            batch_name: newBatch.batch_name,
+            keyword_set_id: newBatch.keyword_set_id,
+            keyword_set_name: newBatch.keyword_set_name,
+            country: newBatch.country,
+            status: newBatch.status,
+            keyword_count: newBatch.keyword_count,
+            location_count: newBatch.location_count,
+            combination_count: newBatch.combination_count,
+            leads_collected: newBatch.leads_collected,
+            notes: newBatch.notes,
+            created_by: newBatch.created_by,
+            created_by_name: newBatch.created_by_name,
+            created_at: newBatch.created_at,
+            updated_at: newBatch.updated_at,
+          },
+        ]);
+
+        await supabase.from('collection_batch_locations').insert(batchLocationsToCreate);
+        await supabase.from('collection_locations').update({ status: 'claimed' }).in('id', locationIds);
+      } catch (err) {
+        console.warn('Supabase createCollectionBatch notice:', err);
+      }
+    }
+
+    return { success: true, batch: newBatch };
+  };
+
+  const startCollectionBatch = async (batchId: string): Promise<void> => {
+    const target = collectionBatches.find((b) => b.id === batchId);
+    if (!target) return;
+
+    const now = new Date().toISOString();
+    const locIds = target.locations?.map((l) => l.location_id) || [];
+
+    setCollectionBatches((prev) =>
+      prev.map((b) =>
+        b.id === batchId
+          ? {
+              ...b,
+              status: 'in_progress',
+              started_at: now,
+              started_by: currentUserId,
+              started_by_name: currentUserName,
+              updated_at: now,
+            }
+          : b
+      )
+    );
+
+    setLocations((prev) =>
+      prev.map((l) => (locIds.includes(l.id) ? { ...l, status: 'in_progress' } : l))
+    );
+
+    const supabase = getSupabase();
+    if (supabase) {
+      try {
+        await supabase
+          .from('collection_batches')
+          .update({
+            status: 'in_progress',
+            started_at: now,
+            started_by: currentUserId,
+            started_by_name: currentUserName,
+            updated_at: now,
+          })
+          .eq('id', batchId);
+
+        if (locIds.length > 0) {
+          await supabase.from('collection_locations').update({ status: 'in_progress' }).in('id', locIds);
+        }
+      } catch (err) {
+        console.warn('Supabase startCollectionBatch notice:', err);
+      }
+    }
+  };
+
+  const completeCollectionBatch = async (
+    batchId: string,
+    leadsCollected: number,
+    notes?: string,
+    isPartial: boolean = false,
+    completedLocationIds?: string[]
+  ): Promise<void> => {
+    const target = collectionBatches.find((b) => b.id === batchId);
+    if (!target) return;
+
+    const now = new Date().toISOString();
+    const finalStatus: CollectionBatchStatus = isPartial ? 'partial' : 'completed';
+
+    const allLocIds = target.locations?.map((l) => l.location_id) || [];
+    const completedSet = completedLocationIds
+      ? new Set(completedLocationIds)
+      : new Set(allLocIds);
+
+    // Update batch
+    setCollectionBatches((prev) =>
+      prev.map((b) =>
+        b.id === batchId
+          ? {
+              ...b,
+              status: finalStatus,
+              leads_collected: leadsCollected,
+              notes: notes !== undefined ? notes : b.notes,
+              completed_at: now,
+              completed_by: currentUserId,
+              completed_by_name: currentUserName,
+              updated_at: now,
+            }
+          : b
+      )
+    );
+
+    // Update locations
+    setLocations((prev) =>
+      prev.map((l) => {
+        if (!allLocIds.includes(l.id)) return l;
+        const isDone = completedSet.has(l.id);
+        return {
+          ...l,
+          status: isDone ? 'completed' : 'available',
+          last_used_date: isDone ? now : l.last_used_date,
+          last_used_batch_id: isDone ? batchId : l.last_used_batch_id,
+          last_used_keyword_set_id: isDone ? target.keyword_set_id : l.last_used_keyword_set_id,
+          last_used_by_name: isDone ? currentUserName : l.last_used_by_name,
+        };
+      })
+    );
+
+    const supabase = getSupabase();
+    if (supabase) {
+      try {
+        await supabase
+          .from('collection_batches')
+          .update({
+            status: finalStatus,
+            leads_collected: leadsCollected,
+            notes: notes !== undefined ? notes : target.notes,
+            completed_at: now,
+            completed_by: currentUserId,
+            completed_by_name: currentUserName,
+            updated_at: now,
+          })
+          .eq('id', batchId);
+
+        // Update completed locations
+        const doneList = Array.from(completedSet);
+        if (doneList.length > 0) {
+          await supabase
+            .from('collection_locations')
+            .update({
+              status: 'completed',
+              last_used_date: now,
+              last_used_batch_id: batchId,
+              last_used_keyword_set_id: target.keyword_set_id,
+              last_used_by_name: currentUserName,
+            })
+            .in('id', doneList);
+        }
+
+        // Release skipped locations back to available
+        const skippedList = allLocIds.filter((id) => !completedSet.has(id));
+        if (skippedList.length > 0) {
+          await supabase
+            .from('collection_locations')
+            .update({ status: 'available' })
+            .in('id', skippedList);
+        }
+      } catch (err) {
+        console.warn('Supabase completeCollectionBatch notice:', err);
+      }
+    }
+  };
+
+  const cancelCollectionBatch = async (batchId: string, reason?: string): Promise<void> => {
+    const target = collectionBatches.find((b) => b.id === batchId);
+    if (!target) return;
+
+    const now = new Date().toISOString();
+    const locIds = target.locations?.map((l) => l.location_id) || [];
+
+    setCollectionBatches((prev) =>
+      prev.map((b) =>
+        b.id === batchId
+          ? {
+              ...b,
+              status: 'cancelled',
+              notes: reason ? `${b.notes || ''} [Cancelled: ${reason}]`.trim() : b.notes,
+              updated_at: now,
+            }
+          : b
+      )
+    );
+
+    // Release claimed locations back to 'available'
+    setLocations((prev) =>
+      prev.map((l) => (locIds.includes(l.id) ? { ...l, status: 'available' } : l))
+    );
+
+    const supabase = getSupabase();
+    if (supabase) {
+      try {
+        await supabase
+          .from('collection_batches')
+          .update({
+            status: 'cancelled',
+            updated_at: now,
+          })
+          .eq('id', batchId);
+
+        if (locIds.length > 0) {
+          await supabase.from('collection_locations').update({ status: 'available' }).in('id', locIds);
+        }
+      } catch (err) {
+        console.warn('Supabase cancelCollectionBatch notice:', err);
+      }
+    }
+  };
+
   const clearAllDemoData = useCallback(async () => {
     setLeads([]);
     setMeetings([]);
@@ -1322,6 +2111,11 @@ export const LeadProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setEmailCopies([]);
     setImportantNotes([]);
     setTodoTasks([]);
+    setKeywordSets([]);
+    setKeywords([]);
+    setLocations([]);
+    setCollectionBatches([]);
+    setBatchLocations([]);
 
     localStorage.setItem('ruhit_local_leads', JSON.stringify([]));
     localStorage.setItem('ruhit_local_meetings', JSON.stringify([]));
@@ -1335,6 +2129,11 @@ export const LeadProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.setItem('ruhit_local_email_copies', JSON.stringify([]));
     localStorage.setItem('ruhit_local_important_notes', JSON.stringify([]));
     localStorage.setItem('ruhit_local_todo_tasks', JSON.stringify([]));
+    localStorage.setItem('ruhit_local_keyword_sets', JSON.stringify([]));
+    localStorage.setItem('ruhit_local_keywords', JSON.stringify([]));
+    localStorage.setItem('ruhit_local_locations', JSON.stringify([]));
+    localStorage.setItem('ruhit_local_collection_batches', JSON.stringify([]));
+    localStorage.setItem('ruhit_local_batch_locations', JSON.stringify([]));
     localStorage.setItem('ruhit_db_initialized', 'true');
 
     await clearAllStores();
@@ -1417,6 +2216,28 @@ export const LeadProvider: React.FC<{ children: React.ReactNode }> = ({ children
         updateTodoTask,
         deleteTodoTask,
 
+        // Lead Collection / Command Center
+        keywordSets,
+        keywords,
+        locations,
+        collectionBatches,
+        batchLocations,
+        addKeywordSet,
+        updateKeywordSet,
+        deleteKeywordSet,
+        addKeywordsToSet,
+        deleteKeyword,
+        bulkImportLocations,
+        addSingleLocation,
+        updateLocation,
+        deleteLocation,
+        getNextAvailableLocations,
+        checkLocationOverlap,
+        createCollectionBatch,
+        startCollectionBatch,
+        completeCollectionBatch,
+        cancelCollectionBatch,
+
         markNotificationRead,
         markAllNotificationsRead,
         refreshDataFromCloud,
@@ -1435,3 +2256,4 @@ export const useLeads = (): LeadContextType => {
   }
   return context;
 };
+

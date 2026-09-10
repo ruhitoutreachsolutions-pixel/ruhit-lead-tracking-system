@@ -1,4 +1,24 @@
-import { Lead, LeadList, UserProfile, UserPermissions, Brand, Account, Campaign, Meeting, LeadActivity, Reminder, InAppNotification, MailMergeBatch, EmailCopy, ImportantNote, TaskItem } from '../types';
+import {
+  Lead,
+  LeadList,
+  UserProfile,
+  UserPermissions,
+  Brand,
+  Account,
+  Campaign,
+  Meeting,
+  LeadActivity,
+  Reminder,
+  InAppNotification,
+  MailMergeBatch,
+  EmailCopy,
+  ImportantNote,
+  TaskItem,
+  CollectionKeywordSet,
+  CollectionKeyword,
+  CollectionLocation,
+  CollectionBatch,
+} from '../types';
 
 export const INITIAL_LISTS: LeadList[] = [
   { id: 'list-1', name: 'UK Tech Outbound', description: 'Priority outreach for UK tech founders and directors', color: '#00C2FF', created_at: '2026-09-01T00:00:00Z' },
@@ -15,6 +35,7 @@ export const MASTER_PERMISSIONS: UserPermissions = {
   can_view_reports: true,
   can_manage_settings: true,
   can_manage_email_copies: true,
+  can_manage_lead_collections: true,
 };
 
 export const INITIAL_USERS: UserProfile[] = [
@@ -715,4 +736,124 @@ export const INITIAL_TODO_TASKS: TaskItem[] = [
     created_at: '2026-09-06T12:00:00Z'
   }
 ];
+
+// ==============================================================================
+// LEAD COLLECTION / COMMAND CENTER INITIAL SEED DATA
+// ==============================================================================
+
+export const INITIAL_COLLECTION_KEYWORD_SETS: CollectionKeywordSet[] = [
+  {
+    id: 'ks-care-1',
+    name: 'Care Services',
+    description: 'Homecare, domiciliary care, and elderly assistance providers',
+    status: 'active',
+    created_by: 'usr-ruhit-owner',
+    created_by_name: 'Ruhit (Owner)',
+    created_at: '2026-09-01T00:00:00Z',
+    updated_at: '2026-09-01T00:00:00Z',
+  },
+  {
+    id: 'ks-train-2',
+    name: 'Training',
+    description: 'Corporate workforce training and professional development providers',
+    status: 'active',
+    created_by: 'usr-ruhit-owner',
+    created_by_name: 'Ruhit (Owner)',
+    created_at: '2026-09-02T00:00:00Z',
+    updated_at: '2026-09-02T00:00:00Z',
+  },
+];
+
+export const INITIAL_COLLECTION_KEYWORDS: CollectionKeyword[] = [
+  // Care Services Keywords
+  { id: 'kw-1', keyword_set_id: 'ks-care-1', keyword: 'homecare agency', created_at: '2026-09-01T00:00:00Z' },
+  { id: 'kw-2', keyword_set_id: 'ks-care-1', keyword: 'domiciliary care agency', created_at: '2026-09-01T00:00:00Z' },
+  { id: 'kw-3', keyword_set_id: 'ks-care-1', keyword: 'home care services', created_at: '2026-09-01T00:00:00Z' },
+  { id: 'kw-4', keyword_set_id: 'ks-care-1', keyword: 'live-in care agency', created_at: '2026-09-01T00:00:00Z' },
+  { id: 'kw-5', keyword_set_id: 'ks-care-1', keyword: 'care at home provider', created_at: '2026-09-01T00:00:00Z' },
+  { id: 'kw-6', keyword_set_id: 'ks-care-1', keyword: 'elderly care agency', created_at: '2026-09-01T00:00:00Z' },
+
+  // Training Keywords
+  { id: 'kw-7', keyword_set_id: 'ks-train-2', keyword: 'training provider', created_at: '2026-09-02T00:00:00Z' },
+  { id: 'kw-8', keyword_set_id: 'ks-train-2', keyword: 'corporate training', created_at: '2026-09-02T00:00:00Z' },
+  { id: 'kw-9', keyword_set_id: 'ks-train-2', keyword: 'leadership training', created_at: '2026-09-02T00:00:00Z' },
+  { id: 'kw-10', keyword_set_id: 'ks-train-2', keyword: 'professional training', created_at: '2026-09-02T00:00:00Z' },
+];
+
+const IRELAND_CITIES = [
+  'Longford',
+  'Dungarvan',
+  'Nenagh',
+  'Trim',
+  'New Ross',
+  'Kilkenny',
+  'Athlone',
+  'Mullingar',
+  'Enniscorthy',
+  'Gorey',
+  'Shannon',
+  'Portlaoise',
+  'Ballina',
+  'Sligo',
+  'Westport',
+  'Letterkenny',
+  'Killarney',
+  'Tullamore',
+  'Navan',
+  'Carlow',
+  'Castlebar',
+  'Tralee',
+  'Wexford',
+  'Clonmel',
+  'Drogheda',
+  'Dundalk',
+  'Bray',
+  'Swords',
+  'Cobh',
+  'Mallow',
+];
+
+const UK_CITIES = [
+  'Manchester',
+  'Birmingham',
+  'Leeds',
+  'Sheffield',
+  'Bristol',
+  'Newcastle',
+  'Nottingham',
+  'Liverpool',
+  'Southampton',
+  'Leicester',
+  'Coventry',
+  'Bradford',
+  'Stoke-on-Trent',
+  'Wolverhampton',
+  'Plymouth',
+  'Derby',
+  'Reading',
+  'Norwich',
+  'Exeter',
+  'Gloucester',
+];
+
+export const INITIAL_COLLECTION_LOCATIONS: CollectionLocation[] = [
+  ...IRELAND_CITIES.map((city, idx) => ({
+    id: `loc-ie-${idx + 1}`,
+    city,
+    country: 'Ireland',
+    normalized_name: `${city.toLowerCase()}, ireland`,
+    status: 'available' as const,
+    created_at: '2026-09-01T00:00:00Z',
+  })),
+  ...UK_CITIES.map((city, idx) => ({
+    id: `loc-uk-${idx + 1}`,
+    city,
+    country: 'United Kingdom',
+    normalized_name: `${city.toLowerCase()}, united kingdom`,
+    status: 'available' as const,
+    created_at: '2026-09-01T00:00:00Z',
+  })),
+];
+
+export const INITIAL_COLLECTION_BATCHES: CollectionBatch[] = [];
 

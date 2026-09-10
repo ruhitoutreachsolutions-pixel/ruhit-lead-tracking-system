@@ -4,7 +4,7 @@
  */
 
 const DB_NAME = 'RuhitCRM_DB';
-const DB_VERSION = 3;
+const DB_VERSION = 4;
 
 export const STORES = {
   LEADS: 'leads',
@@ -21,6 +21,11 @@ export const STORES = {
   NOTES: 'notes',
   TASKS: 'tasks',
   SYNC_META: 'sync_meta',
+  COLLECTION_KEYWORD_SETS: 'collection_keyword_sets',
+  COLLECTION_KEYWORDS: 'collection_keywords',
+  COLLECTION_LOCATIONS: 'collection_locations',
+  COLLECTION_BATCHES: 'collection_batches',
+  COLLECTION_BATCH_LOCATIONS: 'collection_batch_locations',
 } as const;
 
 function openDatabase(): Promise<IDBDatabase> {

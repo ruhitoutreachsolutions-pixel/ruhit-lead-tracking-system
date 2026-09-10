@@ -9,6 +9,7 @@ export interface UserPermissions {
   can_view_reports: boolean;
   can_manage_settings: boolean;
   can_manage_email_copies: boolean;
+  can_manage_lead_collections: boolean;
 }
 
 export interface UserProfile {
@@ -348,5 +349,85 @@ export interface TaskItem {
   created_at: string;
   completed_at?: string;
   alerted?: boolean;
+}
+
+// ==============================================================================
+// LEAD LIST COLLECTION / COMMAND CENTER TYPES
+// ==============================================================================
+
+export type CollectionBatchStatus = 'ready' | 'in_progress' | 'completed' | 'partial' | 'cancelled';
+
+export type LocationStatus = 'available' | 'claimed' | 'in_progress' | 'completed' | 'partial';
+
+export interface CollectionKeywordSet {
+  id: string;
+  name: string;
+  description?: string;
+  status: 'active' | 'archived';
+  keyword_count?: number;
+  created_by?: string;
+  created_by_name?: string;
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface CollectionKeyword {
+  id: string;
+  keyword_set_id: string;
+  keyword: string;
+  created_at: string;
+}
+
+export interface CollectionLocation {
+  id: string;
+  city: string;
+  region?: string;
+  state_region?: string;
+  country: string;
+  normalized_name: string;
+  status: LocationStatus;
+  last_used_date?: string | null;
+  last_used_batch_id?: string | null;
+  last_used_keyword_set_id?: string | null;
+  last_used_by_name?: string | null;
+  created_at: string;
+}
+
+export interface CollectionBatchLocation {
+  id: string;
+  batch_id: string;
+  location_id: string;
+  city: string;
+  country: string;
+  status: 'pending' | 'completed' | 'skipped';
+}
+
+export interface CollectionBatch {
+  id: string;
+  batch_number: string; // e.g. "BATCH-1042"
+  batch_code?: string;
+  batch_name: string;
+  name?: string;
+  keyword_set_id?: string;
+  keyword_set_name: string;
+  country: string;
+  status: CollectionBatchStatus;
+  keyword_count: number;
+  location_count: number;
+  combination_count: number;
+  leads_collected: number;
+  notes?: string;
+  created_by?: string;
+  created_by_name?: string;
+  started_at?: string | null;
+  started_by?: string | null;
+  started_by_name?: string | null;
+  completed_at?: string | null;
+  completed_by?: string | null;
+  completed_by_name?: string | null;
+  keywords?: string[];
+  locations?: CollectionBatchLocation[];
+  created_at: string;
+  updated_at: string;
 }
 

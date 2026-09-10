@@ -13,7 +13,8 @@ import {
   Globe,
   UserCheck,
   ShieldAlert,
-  X
+  X,
+  Layers,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useLeads } from '../../context/LeadContext';
@@ -21,6 +22,7 @@ import { useLeads } from '../../context/LeadContext';
 export type NavTab =
   | 'dashboard'
   | 'leads'
+  | 'lead_collection'
   | 'meetings'
   | 'mailmerge'
   | 'email_copies'
@@ -45,13 +47,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onCloseMobile
 }) => {
   const { currentUser, role, permissions, logout } = useAuth();
-  const { leads, reminders, cloudStatus } = useLeads();
+  const { leads, reminders, cloudStatus, collectionBatches } = useLeads();
 
   const pendingRemindersCount = reminders.filter((r) => !r.is_completed).length;
+  const activeBatchesCount = collectionBatches?.filter((b) => b.status === 'ready' || b.status === 'in_progress').length || 0;
 
   const rawNavItems: { id: NavTab; label: string; icon: React.ReactNode; badge?: number; permitted: boolean }[] = [
     { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard className="w-4 h-4" />, permitted: true },
     { id: 'leads', label: 'All Leads', icon: <Users className="w-4 h-4" />, badge: leads.length, permitted: permissions.can_view_leads },
+    { id: 'lead_collection', label: 'Lead List Collection', icon: <Layers className="w-4 h-4" />, badge: activeBatchesCount > 0 ? activeBatchesCount : undefined, permitted: permissions.can_manage_lead_collections ?? true },
     { id: 'meetings', label: 'Meetings Kanban', icon: <CalendarCheck2 className="w-4 h-4" />, permitted: true },
     { id: 'mailmerge', label: 'Mail Merge', icon: <SendHorizontal className="w-4 h-4" />, permitted: true },
     { id: 'email_copies', label: 'Email Copies & Notes', icon: <FileText className="w-4 h-4" />, permitted: permissions.can_manage_email_copies },

@@ -32,6 +32,7 @@ const DEFAULT_NEW_PERMISSIONS: UserPermissions = {
   can_view_reports: false,
   can_manage_settings: false,
   can_manage_email_copies: false,
+  can_manage_lead_collections: true,
 };
 
 export const UserManagementModal: React.FC<UserManagementModalProps> = ({ isOpen, onClose }) => {
@@ -434,6 +435,7 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({ isOpen
                     { key: 'can_delete_leads', label: 'Delete Leads', desc: 'Can permanently delete lead records' },
                     { key: 'can_view_reports', label: 'View Reports & Analytics', desc: 'Can view monthly conversion reports and KPIs' },
                     { key: 'can_manage_email_copies', label: 'Manage Email Copies & Tasks', desc: 'Can edit email sequences and todo lists' },
+                    { key: 'can_manage_lead_collections', label: 'Lead List Collection', desc: 'Can manage keyword sets, locations, and batch collection' },
                     { key: 'can_manage_settings', label: 'Manage Settings & Integrations', desc: 'Can modify brands, accounts, and campaigns' },
                   ].map((item) => {
                     const k = item.key as keyof UserPermissions;
