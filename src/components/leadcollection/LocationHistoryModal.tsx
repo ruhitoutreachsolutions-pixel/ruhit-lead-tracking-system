@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   X,
   MapPin,
@@ -87,6 +87,23 @@ export const LocationHistoryModal: React.FC<LocationHistoryModalProps> = ({
     ? keywordSets.find((k) => k.id === location.last_used_keyword_set_id)
     : null;
 
+  const [isEditing, setIsEditing] = useState(false);
+  const [editCity, setEditCity] = useState(location.city);
+  const [editCountry, setEditCountry] = useState(location.country);
+  const [editRegion, setEditRegion] = useState(location.region || location.state_region || '');
+
+  const handleSaveEdit = async () => {
+    if (!editCity.trim() || !editCountry.trim()) return;
+    await updateLocation(location.id, {
+      city: editCity.trim(),
+      country: editCountry.trim(),
+      region: editRegion.trim() || undefined,
+      state_region: editRegion.trim() || undefined,
+      normalized_name: `${editCity.trim().toLowerCase()}, ${editCountry.trim().toLowerCase()}`,
+    });
+    setIsEditing(false);
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm overflow-y-auto animate-fadeIn">
       <div className="relative w-full max-w-xl bg-[#0A0E17] border border-cyan-500/30 rounded-2xl shadow-[0_0_50px_rgba(0,194,255,0.15)] overflow-hidden flex flex-col max-h-[90vh]">
@@ -118,12 +135,105 @@ export const LocationHistoryModal: React.FC<LocationHistoryModalProps> = ({
 
         {/* Content Body */}
         <div className="p-6 overflow-y-auto space-y-6 custom-scrollbar">
+          {/* Edit Form */}
+          {isEditing && (
+            <div className="p-4 bg-slate-900/80 rounded-xl border border-cyan-500/40 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-cyan-300 uppercase tracking-wider">
+                  Edit Location Details
+                </span>
+                <div className="flex gap-1.5">
+                  {['Wales', 'England', 'Ireland', 'Scotland'].map((quick) => (
+                    <button
+                      key={quick}
+                      type="button"
+                      onClick={() => setEditCountry(quick)}
+                      className={`text-[10px] px-2 py-0.5 rounded font-mono border ${
+                        editCountry.toLowerCase() === quick.toLowerCase()
+                          ? 'bg-cyan-500 text-slate-950 border-cyan-400 font-bold'
+                          : 'bg-slate-800 text-slate-300 border-slate-700 hover:text-white'
+                      }`}
+                    >
+                      {quick}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">
+                    City Name
+                  </label>
+                  <input
+                    type="text"
+                    value={editCity}
+                    onChange={(e) => setEditCity(e.target.value)}
+                    className="w-full px-3 py-1.5 bg-slate-950 border border-slate-700 rounded-lg text-xs text-white focus:outline-none focus:border-cyan-400"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">
+                    Country (e.g. Wales, England, Ireland)
+                  </label>
+                  <input
+                    type="text"
+                    value={editCountry}
+                    onChange={(e) => setEditCountry(e.target.value)}
+                    className="w-full px-3 py-1.5 bg-slate-950 border border-slate-700 rounded-lg text-xs text-white focus:outline-none focus:border-cyan-400"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">
+                  Region / State (Optional)
+                </label>
+                <input
+                  type="text"
+                  value={editRegion}
+                  onChange={(e) => setEditRegion(e.target.value)}
+                  placeholder="e.g. South Wales, Greater Manchester..."
+                  className="w-full px-3 py-1.5 bg-slate-950 border border-slate-700 rounded-lg text-xs text-white focus:outline-none focus:border-cyan-400"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setIsEditing(false)}
+                  className="px-3 py-1 rounded-lg text-xs text-slate-400 hover:text-white bg-slate-800 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveEdit}
+                  className="px-3 py-1 rounded-lg text-xs font-bold text-slate-950 bg-cyan-400 hover:bg-cyan-300 transition-colors"
+                >
+                  Save Changes
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Metadata Cards */}
           <div className="grid grid-cols-2 gap-3 bg-slate-900/60 p-4 rounded-xl border border-slate-800">
             <div>
-              <span className="text-[11px] uppercase tracking-wider text-slate-400 block mb-1">
-                Country / Region
-              </span>
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[11px] uppercase tracking-wider text-slate-400 block">
+                  Country / Region
+                </span>
+                {!isEditing && (
+                  <button
+                    type="button"
+                    onClick={() => setIsEditing(true)}
+                    className="text-[10px] text-cyan-400 hover:text-cyan-300 font-semibold px-1.5 py-0.5 rounded bg-cyan-950/40 border border-cyan-500/30"
+                  >
+                    Edit
+                  </button>
+                )}
+              </div>
               <span className="text-xs font-semibold text-white">
                 {location.country} {location.state_region ? `(${location.state_region})` : ''}
               </span>

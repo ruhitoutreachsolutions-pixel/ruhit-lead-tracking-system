@@ -813,7 +813,7 @@ const IRELAND_CITIES = [
   'Mallow',
 ];
 
-const UK_CITIES = [
+const ENGLAND_CITIES = [
   'Manchester',
   'Birmingham',
   'Leeds',
@@ -836,6 +836,19 @@ const UK_CITIES = [
   'Gloucester',
 ];
 
+const WALES_CITIES = [
+  'Cardiff',
+  'Swansea',
+  'Newport',
+  'Wrexham',
+  'Barry',
+  'Neath',
+  'Cwmbran',
+  'Llanelli',
+  'Bridgend',
+  'Port Talbot',
+];
+
 export const INITIAL_COLLECTION_LOCATIONS: CollectionLocation[] = [
   ...IRELAND_CITIES.map((city, idx) => ({
     id: `loc-ie-${idx + 1}`,
@@ -845,11 +858,19 @@ export const INITIAL_COLLECTION_LOCATIONS: CollectionLocation[] = [
     status: 'available' as const,
     created_at: '2026-09-01T00:00:00Z',
   })),
-  ...UK_CITIES.map((city, idx) => ({
-    id: `loc-uk-${idx + 1}`,
+  ...ENGLAND_CITIES.map((city, idx) => ({
+    id: `loc-eng-${idx + 1}`,
     city,
-    country: 'United Kingdom',
-    normalized_name: `${city.toLowerCase()}, united kingdom`,
+    country: 'England',
+    normalized_name: `${city.toLowerCase()}, england`,
+    status: 'available' as const,
+    created_at: '2026-09-01T00:00:00Z',
+  })),
+  ...WALES_CITIES.map((city, idx) => ({
+    id: `loc-wal-${idx + 1}`,
+    city,
+    country: 'Wales',
+    normalized_name: `${city.toLowerCase()}, wales`,
     status: 'available' as const,
     created_at: '2026-09-01T00:00:00Z',
   })),

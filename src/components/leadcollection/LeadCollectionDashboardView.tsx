@@ -470,6 +470,67 @@ export const LeadCollectionDashboardView: React.FC = () => {
         {/* ============================================================ */}
         {subTab === 'overview' && (
           <div className="space-y-6">
+            {/* WORKFLOW STEP-BY-STEP EXPLAINER */}
+            <div className="p-5 rounded-3xl bg-gradient-to-r from-cyan-950/40 via-blue-950/30 to-slate-900/60 border border-cyan-500/30 shadow-lg">
+              <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 pb-4 border-b border-cyan-500/20">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-cyan-500/20 border border-cyan-500/40 text-cyan-400 flex items-center justify-center shrink-0 shadow-inner">
+                    <Sparkles className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-white tracking-wide">
+                      SCRAPING WORKFLOW — HOW IT WORKS
+                    </h3>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      Follow these 4 simple steps to scrape keywords & cities and track your leads.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-4">
+                <div className="p-3.5 bg-slate-950/60 rounded-2xl border border-slate-800/80 space-y-1">
+                  <div className="flex items-center gap-2 text-cyan-400 font-mono text-xs font-bold">
+                    <span className="w-5 h-5 rounded-full bg-cyan-500/20 flex items-center justify-center text-[10px]">1</span>
+                    <span>PICK COUNTRY & SIZE</span>
+                  </div>
+                  <p className="text-[11px] text-slate-400 leading-relaxed">
+                    Select <strong className="text-slate-200">Wales</strong>, <strong className="text-slate-200">England</strong>, or <strong className="text-slate-200">Ireland</strong> below and click <span className="text-cyan-300 font-mono font-bold">NEXT 10</span>. The system auto-picks your next unused cities.
+                  </p>
+                </div>
+
+                <div className="p-3.5 bg-slate-950/60 rounded-2xl border border-slate-800/80 space-y-1">
+                  <div className="flex items-center gap-2 text-cyan-400 font-mono text-xs font-bold">
+                    <span className="w-5 h-5 rounded-full bg-cyan-500/20 flex items-center justify-center text-[10px]">2</span>
+                    <span>COPY KEYWORDS</span>
+                  </div>
+                  <p className="text-[11px] text-slate-400 leading-relaxed">
+                    Click <span className="text-cyan-300 font-mono font-bold">1. Copy Keywords</span>. All keywords are copied 1 per line to your clipboard. Paste them into your calendar or keyword scraper box.
+                  </p>
+                </div>
+
+                <div className="p-3.5 bg-slate-950/60 rounded-2xl border border-slate-800/80 space-y-1">
+                  <div className="flex items-center gap-2 text-emerald-400 font-mono text-xs font-bold">
+                    <span className="w-5 h-5 rounded-full bg-emerald-500/20 flex items-center justify-center text-[10px]">3</span>
+                    <span>COPY CITIES</span>
+                  </div>
+                  <p className="text-[11px] text-slate-400 leading-relaxed">
+                    Click <span className="text-emerald-300 font-mono font-bold">2. Copy Cities</span>. All cities are copied 1 per line. Paste into your scraper city/location box and run your scraping tool.
+                  </p>
+                </div>
+
+                <div className="p-3.5 bg-slate-950/60 rounded-2xl border border-slate-800/80 space-y-1">
+                  <div className="flex items-center gap-2 text-purple-400 font-mono text-xs font-bold">
+                    <span className="w-5 h-5 rounded-full bg-purple-500/20 flex items-center justify-center text-[10px]">4</span>
+                    <span>COMPLETE & ADVANCE</span>
+                  </div>
+                  <p className="text-[11px] text-slate-400 leading-relaxed">
+                    When scraping finishes, click <span className="text-purple-300 font-mono font-bold">Complete</span> and enter total leads collected. The system marks cities done and gives you the next batch!
+                  </p>
+                </div>
+              </div>
+            </div>
+
             {/* NEXT COLLECTION QUICK ACTION WIDGET */}
             <div className="relative overflow-hidden p-6 rounded-3xl bg-gradient-to-br from-[#0B1528] via-[#0E1A33] to-[#080E1A] border border-cyan-500/30 shadow-[0_0_40px_rgba(0,194,255,0.12)]">
               <div className="absolute -right-10 -top-10 w-64 h-64 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none" />
@@ -1297,66 +1358,68 @@ export const LeadCollectionDashboardView: React.FC = () => {
         </div>
 
         {/* Action Buttons Row */}
-        <div className="pt-3 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-2">
+        <div className="pt-3 border-t border-slate-800/80 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
           {/* Copy Controls */}
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-2">
             <button
               onClick={() => handleCopyKeywords(batch)}
-              className="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-800/90 hover:bg-slate-700 text-slate-200 border border-slate-700 flex items-center gap-1 transition-colors"
-              title="Copy clean keywords (1 per line)"
+              className="px-3 py-2 rounded-xl text-xs font-semibold bg-cyan-950/70 hover:bg-cyan-900/80 text-cyan-300 border border-cyan-500/40 flex items-center gap-1.5 transition-colors shadow-sm"
+              title="Copy clean keywords (1 per line) to paste directly into your calendar / keyword box"
             >
               {copiedKeyId === batch.id ? (
                 <Check className="w-3.5 h-3.5 text-emerald-400" />
               ) : (
                 <Copy className="w-3.5 h-3.5 text-cyan-400" />
               )}
-              <span className="text-[11px]">Keywords</span>
+              <span>1. Copy Keywords</span>
             </button>
 
             <button
               onClick={() => handleCopyLocations(batch)}
-              className="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-800/90 hover:bg-slate-700 text-slate-200 border border-slate-700 flex items-center gap-1 transition-colors"
-              title="Copy clean locations (1 per line)"
+              className="px-3 py-2 rounded-xl text-xs font-semibold bg-emerald-950/70 hover:bg-emerald-900/80 text-emerald-300 border border-emerald-500/40 flex items-center gap-1.5 transition-colors shadow-sm"
+              title="Copy clean cities (1 per line) to paste directly into your scraper city box"
             >
               {copiedLocId === batch.id ? (
                 <Check className="w-3.5 h-3.5 text-emerald-400" />
               ) : (
                 <Copy className="w-3.5 h-3.5 text-emerald-400" />
               )}
-              <span className="text-[11px]">Locations</span>
+              <span>2. Copy Cities</span>
             </button>
           </div>
 
           {/* State Transition Actions */}
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-2 justify-end">
             {isReady && (
               <button
                 onClick={() => startCollectionBatch(batch.id)}
-                className="px-3 py-1.5 rounded-lg text-xs font-bold bg-cyan-500 hover:bg-cyan-400 text-slate-950 flex items-center gap-1 transition-all shadow-md shadow-cyan-500/20"
+                className="px-3.5 py-2 rounded-xl text-xs font-bold bg-cyan-500 hover:bg-cyan-400 text-slate-950 flex items-center gap-1.5 transition-all shadow-md shadow-cyan-500/20"
+                title="Start batch and claim locations to prevent anyone else scraping them"
               >
                 <Play className="w-3.5 h-3.5 fill-current" />
-                <span>Start</span>
+                <span>3. Start Scraping</span>
               </button>
             )}
 
             {isInProgress && (
               <button
                 onClick={() => setCompleteBatchTarget(batch)}
-                className="px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-400 hover:bg-emerald-300 text-slate-950 flex items-center gap-1 transition-all shadow-md shadow-emerald-500/20"
+                className="px-3.5 py-2 rounded-xl text-xs font-bold bg-emerald-400 hover:bg-emerald-300 text-slate-950 flex items-center gap-1.5 transition-all shadow-md shadow-emerald-500/20"
+                title="Log total leads collected from scraper output and mark cities as completed"
               >
                 <CheckCircle className="w-3.5 h-3.5" />
-                <span>Complete</span>
+                <span>4. Complete & Record Leads</span>
               </button>
             )}
 
             {isCompleted && (
               <button
                 onClick={() => handleCreateNextFromBatch(batch)}
-                className="px-3 py-1.5 rounded-lg text-xs font-bold bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/40 flex items-center gap-1 transition-all"
-                title="Create next batch using same settings and next available cities"
+                className="px-3.5 py-2 rounded-xl text-xs font-bold bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/40 flex items-center gap-1.5 transition-all"
+                title="Automatically advance to the next batch with the next unworked cities"
               >
-                <span>Next Batch</span>
-                <ArrowRight className="w-3 h-3" />
+                <span>Create Next Batch</span>
+                <ArrowRight className="w-3.5 h-3.5" />
               </button>
             )}
 

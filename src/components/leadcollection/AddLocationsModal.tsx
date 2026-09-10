@@ -10,6 +10,10 @@ interface AddLocationsModalProps {
 
 const COMMON_COUNTRIES = [
   'Ireland',
+  'England',
+  'Wales',
+  'Scotland',
+  'Northern Ireland',
   'United Kingdom',
   'United States',
   'Canada',
