@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { LeadProvider, useLeads } from './context/LeadContext';
 import { Sidebar, NavTab } from './components/layout/Sidebar';
@@ -38,6 +38,26 @@ const AppContent: React.FC = () => {
   if (!isAuthenticated) {
     return <LoginView />;
   }
+
+  // Automatically open native picker when clicking anywhere on date or time inputs
+  useEffect(() => {
+    const handlePickerClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target && target.tagName === 'INPUT') {
+        const input = target as HTMLInputElement;
+        if (input.type === 'date' || input.type === 'time' || input.type === 'datetime-local') {
+          try {
+            input.showPicker?.();
+          } catch {}
+        }
+      }
+    };
+
+    document.addEventListener('click', handlePickerClick);
+    return () => {
+      document.removeEventListener('click', handlePickerClick);
+    };
+  }, []);
 
   const handleOpenScheduleMeeting = (leadId: string) => {
     setSelectedLeadId(null);

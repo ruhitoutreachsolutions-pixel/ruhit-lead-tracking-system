@@ -592,7 +592,13 @@ export const LeadDetailModal: React.FC<LeadDetailModalProps> = ({
                       type="date"
                       value={dateOfInterested}
                       onChange={(e) => setDateOfInterested(e.target.value)}
-                      className="bg-[#0A0A0A] border border-[#1E3A5F] rounded-lg px-2.5 py-1.5 text-xs text-white focus:border-[#00C2FF] focus:outline-none w-full sm:w-44"
+                      onClick={(e) => {
+                        try {
+                          (e.currentTarget as HTMLInputElement).showPicker?.();
+                        } catch {}
+                      }}
+                      style={{ colorScheme: 'dark' }}
+                      className="bg-[#0A0A0A] border border-[#1E3A5F] hover:border-[#00C2FF]/70 rounded-lg px-2.5 py-1.5 text-xs text-white focus:border-[#00C2FF] focus:outline-none w-full sm:w-44 cursor-pointer"
                     />
                   </div>
                 )}
