@@ -91,6 +91,7 @@ export const LeadDetailModal: React.FC<LeadDetailModalProps> = ({
   // Stage & Pending State
   const [pipelineStage, setPipelineStage] = useState<string>('outreach');
   const [isPendingYes, setIsPendingYes] = useState<boolean>(false);
+  const [dateOfInterested, setDateOfInterested] = useState<string>('');
 
   // UI state
   const [activeTab, setActiveTab] = useState<'timeline' | 'notes' | 'reminders'>('timeline');
@@ -144,6 +145,13 @@ export const LeadDetailModal: React.FC<LeadDetailModalProps> = ({
       }
 
       setIsPendingYes(Boolean(lead.is_pending && lead.meeting_count_type !== 'NO'));
+      setDateOfInterested(
+        lead.interested_at
+          ? lead.interested_at.slice(0, 10)
+          : lead.is_interested && lead.created_at
+          ? lead.created_at.slice(0, 10)
+          : ''
+      );
     }
   }, [lead, currentUser?.id]);
 
@@ -230,6 +238,10 @@ export const LeadDetailModal: React.FC<LeadDetailModalProps> = ({
     const finalPending = canBePending && isPendingYes;
 
     const finalPriority = pipelineStage === 'dnc' ? 'DNC' : priority;
+    const interestedIso = dateOfInterested.trim()
+      ? new Date(`${dateOfInterested.trim()}T12:00:00`).toISOString()
+      : (lead.interested_at || (lead.is_interested ? lead.created_at : now));
+
     const updates: Partial<Lead> = {
       first_name: firstName.trim(),
       last_name: lastName.trim(),
@@ -259,7 +271,7 @@ export const LeadDetailModal: React.FC<LeadDetailModalProps> = ({
       interested_email_followup_stage: (interestedEmailFollowup === 'none' ? null : interestedEmailFollowup) as InterestedEmailFollowUpStage,
       notes: notes.trim(),
       is_interested: isInterested,
-      interested_at: isInterested ? (lead.interested_at || now) : null,
+      interested_at: isInterested ? interestedIso : null,
       is_meeting_scheduled: isMeetingScheduled,
       meeting_scheduled_at: isMeetingScheduled ? (lead.meeting_scheduled_at || now) : null,
       is_meeting_done: isMeetingDone,
@@ -562,6 +574,26 @@ export const LeadDetailModal: React.FC<LeadDetailModalProps> = ({
                     <div className="bg-[#0A0A0A] border border-[#1E3A5F] rounded-lg px-2.5 py-1.5 text-xs text-[#00C2FF] font-mono">
                       {lead.meeting_date} at {formatTo12Hour(lead.meeting_time)}
                     </div>
+                  </div>
+                )}
+
+                {/* Milestone Date of Interested */}
+                {pipelineStage !== 'outreach' && pipelineStage !== 'dnc' && (
+                  <div className="sm:col-span-2 pt-2 border-t border-[#1E3A5F]/40 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div>
+                      <label className="text-[11px] text-[#94A3B8] font-semibold block">
+                        Date of Interested:
+                      </label>
+                      <span className="text-[10px] text-slate-500">
+                        Controls which month and date this lead counts towards in dashboard reports.
+                      </span>
+                    </div>
+                    <input
+                      type="date"
+                      value={dateOfInterested}
+                      onChange={(e) => setDateOfInterested(e.target.value)}
+                      className="bg-[#0A0A0A] border border-[#1E3A5F] rounded-lg px-2.5 py-1.5 text-xs text-white focus:border-[#00C2FF] focus:outline-none w-full sm:w-44"
+                    />
                   </div>
                 )}
               </div>

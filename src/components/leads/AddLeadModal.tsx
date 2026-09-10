@@ -45,6 +45,7 @@ export const AddLeadModal: React.FC<AddLeadModalProps> = ({ isOpen, onClose }) =
   const [email1Date, setEmail1Date] = useState(todayFormatted);
   const [email2Date, setEmail2Date] = useState('');
   const [email3Date, setEmail3Date] = useState('');
+  const [dateOfInterested, setDateOfInterested] = useState('');
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -77,6 +78,7 @@ export const AddLeadModal: React.FC<AddLeadModalProps> = ({ isOpen, onClose }) =
     setEmail1Date(todayFormatted);
     setEmail2Date('');
     setEmail3Date('');
+    setDateOfInterested('');
     setError('');
     setIsSubmitting(false);
   };
@@ -125,6 +127,11 @@ export const AddLeadModal: React.FC<AddLeadModalProps> = ({ isOpen, onClose }) =
       const canBePending = pipelineStage !== 'count_no' && pipelineStage !== 'dnc';
       const finalPending = canBePending && isPendingYes;
       const finalPriority = pipelineStage === 'dnc' ? 'DNC' : priority;
+      const isDnc = pipelineStage === 'dnc';
+
+      const interestedDateIso = dateOfInterested.trim()
+        ? new Date(`${dateOfInterested.trim()}T12:00:00`).toISOString()
+        : now;
 
       await addLead({
         email: email.trim().toLowerCase(),
@@ -136,7 +143,7 @@ export const AddLeadModal: React.FC<AddLeadModalProps> = ({ isOpen, onClose }) =
         list_ids: selectedListId ? [selectedListId] : [],
         country: country.trim(),
         city: city.trim(),
-        priority: finalPriority,
+        priority: isDnc ? 'DNC' : finalPriority,
         campaign_id: campaignId || undefined,
         campaign_name: selectedCampaign?.name,
         brand_id: brandId || undefined,
@@ -156,7 +163,7 @@ export const AddLeadModal: React.FC<AddLeadModalProps> = ({ isOpen, onClose }) =
         whatsapp_followup_stage: (whatsappFollowup === 'none' ? null : whatsappFollowup) as WhatsAppFollowUpStage,
         interested_email_followup_stage: (interestedEmailFollowup === 'none' ? null : interestedEmailFollowup) as InterestedEmailFollowUpStage,
         is_interested: isInterested,
-        interested_at: isInterested ? now : null,
+        interested_at: isInterested ? interestedDateIso : null,
         is_meeting_scheduled: isScheduled,
         meeting_scheduled_at: isScheduled ? now : null,
         is_meeting_done: isDone,
@@ -522,6 +529,26 @@ export const AddLeadModal: React.FC<AddLeadModalProps> = ({ isOpen, onClose }) =
                 </select>
               </div>
             </div>
+
+            {/* Optional Date of Interested for Historical / Backdating Entry */}
+            {pipelineStage !== 'outreach' && pipelineStage !== 'dnc' && (
+              <div className="pt-2 border-t border-[#1E3A5F]/40 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                  <label className="text-[11px] font-semibold text-[#94A3B8] block">
+                    Date of Interested:
+                  </label>
+                  <span className="text-[10px] text-slate-500">
+                    Defaults to today. Change if lead became interested earlier (e.g. Sep 4).
+                  </span>
+                </div>
+                <input
+                  type="date"
+                  value={dateOfInterested || todayFormatted}
+                  onChange={(e) => setDateOfInterested(e.target.value)}
+                  className="bg-[#0A0A0A] border border-[#1E3A5F] rounded-lg px-2.5 py-1.5 text-xs text-white focus:border-[#00C2FF] focus:outline-none w-full sm:w-44"
+                />
+              </div>
+            )}
 
             {/* Pending Option (Count NO blocked) */}
             <div className="pt-2 flex items-center justify-between border-t border-[#1E3A5F]/40">
