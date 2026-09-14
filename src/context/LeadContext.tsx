@@ -163,6 +163,7 @@ export interface LeadContextType {
   markAllNotificationsRead: () => void;
   refreshDataFromCloud: () => Promise<void>;
   clearAllDemoData: () => Promise<void>;
+  restoreDemoData: () => Promise<void>;
 }
 
 const LeadContext = createContext<LeadContextType | undefined>(undefined);
@@ -2139,6 +2140,55 @@ export const LeadProvider: React.FC<{ children: React.ReactNode }> = ({ children
     await clearAllStores();
   }, []);
 
+  const restoreDemoData = useCallback(async () => {
+    setLeads(INITIAL_LEADS);
+    setMeetings(INITIAL_MEETINGS);
+    setActivities(INITIAL_ACTIVITIES);
+    setReminders(INITIAL_REMINDERS);
+    setNotifications(INITIAL_NOTIFICATIONS);
+    setBrands(INITIAL_BRANDS);
+    setAccounts(INITIAL_ACCOUNTS);
+    setCampaigns(INITIAL_CAMPAIGNS);
+    setBatches(INITIAL_BATCHES);
+    setLists(INITIAL_LISTS);
+    setEmailCopies(INITIAL_EMAIL_COPIES);
+    setImportantNotes(INITIAL_IMPORTANT_NOTES);
+    setTodoTasks(INITIAL_TODO_TASKS);
+
+    // Keep user's collection batches/keywords if they have any, otherwise seed defaults
+    setKeywordSets((prev) => (prev && prev.length > 0 ? prev : INITIAL_COLLECTION_KEYWORD_SETS));
+    setKeywords((prev) => (prev && prev.length > 0 ? prev : INITIAL_COLLECTION_KEYWORDS));
+    setLocations((prev) => (prev && prev.length > 0 ? prev : INITIAL_COLLECTION_LOCATIONS));
+    setCollectionBatches((prev) => (prev && prev.length > 0 ? prev : INITIAL_COLLECTION_BATCHES));
+
+    localStorage.setItem('ruhit_local_leads', JSON.stringify(INITIAL_LEADS));
+    localStorage.setItem('ruhit_local_meetings', JSON.stringify(INITIAL_MEETINGS));
+    localStorage.setItem('ruhit_local_activities', JSON.stringify(INITIAL_ACTIVITIES));
+    localStorage.setItem('ruhit_local_reminders', JSON.stringify(INITIAL_REMINDERS));
+    localStorage.setItem('ruhit_local_notifications', JSON.stringify(INITIAL_NOTIFICATIONS));
+    localStorage.setItem('ruhit_local_brands', JSON.stringify(INITIAL_BRANDS));
+    localStorage.setItem('ruhit_local_accounts', JSON.stringify(INITIAL_ACCOUNTS));
+    localStorage.setItem('ruhit_local_campaigns', JSON.stringify(INITIAL_CAMPAIGNS));
+    localStorage.setItem('ruhit_local_lead_lists', JSON.stringify(INITIAL_LISTS));
+    localStorage.setItem('ruhit_local_email_copies', JSON.stringify(INITIAL_EMAIL_COPIES));
+    localStorage.setItem('ruhit_local_important_notes', JSON.stringify(INITIAL_IMPORTANT_NOTES));
+    localStorage.setItem('ruhit_local_todo_tasks', JSON.stringify(INITIAL_TODO_TASKS));
+    localStorage.setItem('ruhit_db_initialized', 'true');
+
+    await saveCollection(STORES.LEADS, INITIAL_LEADS);
+    await saveCollection(STORES.MEETINGS, INITIAL_MEETINGS);
+    await saveCollection(STORES.ACTIVITIES, INITIAL_ACTIVITIES);
+    await saveCollection(STORES.REMINDERS, INITIAL_REMINDERS);
+    await saveCollection(STORES.NOTIFICATIONS, INITIAL_NOTIFICATIONS);
+    await saveCollection(STORES.BRANDS, INITIAL_BRANDS);
+    await saveCollection(STORES.ACCOUNTS, INITIAL_ACCOUNTS);
+    await saveCollection(STORES.CAMPAIGNS, INITIAL_CAMPAIGNS);
+    await saveCollection(STORES.LISTS, INITIAL_LISTS);
+    await saveCollection(STORES.EMAIL_COPIES, INITIAL_EMAIL_COPIES);
+    await saveCollection(STORES.NOTES, INITIAL_IMPORTANT_NOTES);
+    await saveCollection(STORES.TASKS, INITIAL_TODO_TASKS);
+  }, []);
+
   return (
     <LeadContext.Provider
       value={{
@@ -2242,6 +2292,7 @@ export const LeadProvider: React.FC<{ children: React.ReactNode }> = ({ children
         markAllNotificationsRead,
         refreshDataFromCloud,
         clearAllDemoData,
+        restoreDemoData,
       }}
     >
       {children}

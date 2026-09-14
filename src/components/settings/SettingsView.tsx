@@ -14,7 +14,8 @@ import {
   ShieldCheck,
   AlertCircle,
   Clock,
-  Database
+  Database,
+  RotateCcw
 } from 'lucide-react';
 import { useLeads } from '../../context/LeadContext';
 import { useAuth } from '../../context/AuthContext';
@@ -45,6 +46,7 @@ export const SettingsView: React.FC = () => {
     deleteCampaign,
     refreshDataFromCloud,
     clearAllDemoData,
+    restoreDemoData,
     cloudStatus
   } = useLeads();
   const { currentUser } = useAuth();
@@ -1022,12 +1024,40 @@ export const SettingsView: React.FC = () => {
                     )
                   ) {
                     await clearAllDemoData();
-                    alert('All demo data cleared successfully! Your portal is now completely clean and your deletions will persist permanently.');
+                    alert('All demo data cleared successfully! Your portal is now completely clean and ready for your real leads.');
                   }
                 }}
                 className="px-3.5 py-1.5 bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/50 rounded-lg font-semibold transition-all shrink-0 whitespace-nowrap"
               >
                 Clear Demo Data
+              </button>
+            </div>
+
+            {/* Restore Sample / Demo Data Card */}
+            <div className="p-4 bg-[#0A1926] border border-[#00C2FF]/40 rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3 mt-3">
+              <div>
+                <div className="font-bold text-[#00C2FF] flex items-center gap-1.5">
+                  <RotateCcw className="w-4 h-4" />
+                  <span>Restore Sample / Demo Leads</span>
+                </div>
+                <div className="text-[#94A3B8] text-[11px] mt-0.5">
+                  Populate your portal with the full initial set of sample leads, pipeline milestones, email templates, and brands for testing or demonstration.
+                </div>
+              </div>
+              <button
+                onClick={async () => {
+                  if (
+                    window.confirm(
+                      'Restore sample demo leads and pipeline into your portal? (Your custom collection batches will be kept intact).'
+                    )
+                  ) {
+                    await restoreDemoData();
+                    alert('Sample demo data restored successfully! Your dashboard and leads table are now populated.');
+                  }
+                }}
+                className="px-3.5 py-1.5 bg-[#00C2FF]/20 hover:bg-[#00C2FF]/30 text-[#00C2FF] border border-[#00C2FF]/50 rounded-lg font-semibold transition-all shrink-0 whitespace-nowrap"
+              >
+                Restore Demo Data
               </button>
             </div>
           </div>

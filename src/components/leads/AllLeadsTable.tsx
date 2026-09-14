@@ -93,6 +93,7 @@ export const AllLeadsTable: React.FC<AllLeadsTableProps> = ({
     togglePending,
     recordWhatsAppSent,
     recordCallDone,
+    restoreDemoData,
   } = useLeads();
   const { allUsers, permissions, role } = useAuth();
 
@@ -985,17 +986,64 @@ export const AllLeadsTable: React.FC<AllLeadsTableProps> = ({
             <tbody className="divide-y divide-[#1E3A5F]/40 bg-[#0A0A0A]">
               {paginatedLeads.length === 0 ? (
                 <tr>
-                  <td colSpan={16} className="text-center py-20 text-[#7B7B7B]">
-                    <div className="flex flex-col items-center justify-center space-y-2">
-                      <Filter className="w-8 h-8 text-[#1E3A5F]" />
-                      <p>No leads found matching your criteria.</p>
-                      {hasActiveFilters && (
-                        <button
-                          onClick={resetAllFilters}
-                          className="text-xs text-[#00C2FF] hover:underline"
-                        >
-                          Clear all filters
-                        </button>
+                  <td colSpan={16} className="text-center py-16 text-[#7B7B7B]">
+                    <div className="flex flex-col items-center justify-center space-y-3 max-w-md mx-auto">
+                      <div className="w-12 h-12 rounded-2xl bg-[#111827] border border-[#1E3A5F] flex items-center justify-center text-[#00C2FF] shadow-lg">
+                        <UserPlus className="w-6 h-6" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-white">
+                          {leads.length === 0 ? 'Your Lead Database is Clean' : 'No matching leads found'}
+                        </p>
+                        <p className="text-xs text-[#94A3B8] mt-1">
+                          {leads.length === 0
+                            ? 'You currently have 0 leads in the database. Add your real clients or restore sample data to explore.'
+                            : 'No leads matched your current filters or search term.'}
+                        </p>
+                      </div>
+
+                      {leads.length === 0 ? (
+                        <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
+                          {onOpenAddLead && (
+                            <button
+                              onClick={onOpenAddLead}
+                              className="px-3 py-1.5 bg-[#00C2FF] hover:bg-[#00A3D9] text-black font-semibold rounded-lg text-xs transition-all shadow-md flex items-center space-x-1.5"
+                            >
+                              <Plus className="w-3.5 h-3.5" />
+                              <span>+ Add Single Lead</span>
+                            </button>
+                          )}
+                          <button
+                            onClick={() => {
+                              if (onOpenBulkUpload) onOpenBulkUpload();
+                              else setIsLocalImportOpen(true);
+                            }}
+                            className="px-3 py-1.5 bg-[#111827] hover:bg-[#1E3A5F] text-[#00C2FF] border border-[#00C2FF]/40 rounded-lg text-xs font-semibold transition-all flex items-center space-x-1.5"
+                          >
+                            <Upload className="w-3.5 h-3.5" />
+                            <span>Import CSV / Excel</span>
+                          </button>
+                          <button
+                            onClick={async () => {
+                              if (window.confirm('Restore sample demo leads into your portal?')) {
+                                await restoreDemoData();
+                              }
+                            }}
+                            className="px-3 py-1.5 bg-[#00E5A0]/10 hover:bg-[#00E5A0]/20 text-[#00E5A0] border border-[#00E5A0]/40 rounded-lg text-xs font-semibold transition-all flex items-center space-x-1.5"
+                          >
+                            <RotateCcw className="w-3.5 h-3.5" />
+                            <span>Load Demo Leads</span>
+                          </button>
+                        </div>
+                      ) : (
+                        hasActiveFilters && (
+                          <button
+                            onClick={resetAllFilters}
+                            className="text-xs text-[#00C2FF] hover:underline pt-1 font-medium"
+                          >
+                            Clear all filters
+                          </button>
+                        )
                       )}
                     </div>
                   </td>

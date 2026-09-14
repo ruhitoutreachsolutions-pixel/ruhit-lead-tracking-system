@@ -35,6 +35,11 @@ function openDatabase(): Promise<IDBDatabase> {
       return;
     }
 
+    // Request persistent storage to prevent browser eviction
+    if (typeof navigator !== 'undefined' && navigator.storage && navigator.storage.persist) {
+      navigator.storage.persist().catch(() => {});
+    }
+
     const request = indexedDB.open(DB_NAME, DB_VERSION);
 
     request.onupgradeneeded = (event) => {
