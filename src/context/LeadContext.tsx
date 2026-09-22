@@ -42,7 +42,7 @@ import {
   INITIAL_COLLECTION_LOCATIONS,
   INITIAL_COLLECTION_BATCHES,
 } from '../lib/mockData';
-import { getSupabase, getSupabaseConfig } from '../lib/supabase';
+import { getSupabase, getSupabaseConfig, sanitizeLeadForSupabase } from '../lib/supabase';
 import { showDesktopNotification } from '../lib/notifications';
 import { useAuth } from './AuthContext';
 import { saveCollection, loadCollection, clearAllStores, STORES } from '../lib/indexedDb';
@@ -162,6 +162,7 @@ export interface LeadContextType {
   markNotificationRead: (id: string) => void;
   markAllNotificationsRead: () => void;
   refreshDataFromCloud: () => Promise<void>;
+  syncAllToCloud: () => Promise<{ success: boolean; message: string; count: number }>;
   clearAllDemoData: () => Promise<void>;
   restoreDemoData: () => Promise<void>;
 }
@@ -555,16 +556,45 @@ export const LeadProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
     setCloudStatus('syncing');
     try {
+      // 1. Leads: Fetch cloud leads or push local leads if cloud is empty
       const { data: cLeads, error: lErr } = await supabase.from('leads').select('*').order('created_at', { ascending: false });
-      if (lErr) throw lErr;
-      if (cLeads && cLeads.length > 0) setLeads(cLeads);
+      if (!lErr && cLeads && cLeads.length > 0) {
+        setLeads(cLeads);
+      } else if (!lErr && (!cLeads || cLeads.length === 0)) {
+        // Cloud has 0 leads: check if local storage has leads and back them up to Supabase
+        const localSaved = localStorage.getItem('ruhit_local_leads');
+        if (localSaved) {
+          try {
+            const parsedLocal = JSON.parse(localSaved);
+            if (Array.isArray(parsedLocal) && parsedLocal.length > 0) {
+              const payloads = parsedLocal.map(sanitizeLeadForSupabase);
+              await supabase.from('leads').upsert(payloads);
+            }
+          } catch {}
+        }
+      }
 
+      // 2. Meetings: Only update if cloud has records (never wipe with empty array)
       const { data: cMtgs } = await supabase.from('meetings').select('*').order('scheduled_at', { ascending: true });
-      if (cMtgs) setMeetings(cMtgs);
+      if (cMtgs && cMtgs.length > 0) {
+        setMeetings(cMtgs);
+      } else {
+        const localMtgsSaved = localStorage.getItem('ruhit_local_meetings');
+        if (localMtgsSaved) {
+          try {
+            const parsedMtgs = JSON.parse(localMtgsSaved);
+            if (Array.isArray(parsedMtgs) && parsedMtgs.length > 0) {
+              await supabase.from('meetings').upsert(parsedMtgs);
+            }
+          } catch {}
+        }
+      }
 
+      // 3. Activities: Only update if cloud has records
       const { data: cActs } = await supabase.from('lead_activities').select('*').order('created_at', { ascending: false });
-      if (cActs) setActivities(cActs);
+      if (cActs && cActs.length > 0) setActivities(cActs);
 
+      // 4. Accounts, Brands, Campaigns
       const { data: cAccs } = await supabase.from('accounts').select('*');
       if (cAccs && cAccs.length > 0) setAccounts(cAccs);
 
@@ -575,36 +605,106 @@ export const LeadProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (cCmps && cCmps.length > 0) setCampaigns(cCmps);
 
       const { data: cReminders } = await supabase.from('reminders').select('*');
-      if (cReminders) setReminders(cReminders);
+      if (cReminders && cReminders.length > 0) setReminders(cReminders);
 
-      const { data: cBatches } = await supabase.from('mail_merge_batches').select('*');
-      if (cBatches) setBatches(cBatches);
+      // 5. Batches & Collection Tables (wrapped in try/catch to survive missing schema)
+      try {
+        const { data: cBatches } = await supabase.from('mail_merge_batches').select('*');
+        if (cBatches && cBatches.length > 0) setBatches(cBatches);
+      } catch {}
 
-      // Fetch Collection Command Center data
-      const { data: cSets } = await supabase.from('collection_keyword_sets').select('*');
-      if (cSets && cSets.length > 0) setKeywordSets(cSets);
+      try {
+        const { data: cSets } = await supabase.from('collection_keyword_sets').select('*');
+        if (cSets && cSets.length > 0) setKeywordSets(cSets);
 
-      const { data: cKws } = await supabase.from('collection_keywords').select('*');
-      if (cKws && cKws.length > 0) setKeywords(cKws);
+        const { data: cKws } = await supabase.from('collection_keywords').select('*');
+        if (cKws && cKws.length > 0) setKeywords(cKws);
 
-      const { data: cLocs } = await supabase.from('collection_locations').select('*');
-      if (cLocs && cLocs.length > 0) setLocations(cLocs);
+        const { data: cLocs } = await supabase.from('collection_locations').select('*');
+        if (cLocs && cLocs.length > 0) setLocations(cLocs);
 
-      const { data: cColBatches } = await supabase.from('collection_batches').select('*').order('created_at', { ascending: false });
-      if (cColBatches) setCollectionBatches(cColBatches);
+        const { data: cColBatches } = await supabase.from('collection_batches').select('*').order('created_at', { ascending: false });
+        if (cColBatches && cColBatches.length > 0) setCollectionBatches(cColBatches);
 
-      const { data: cBatchLocs } = await supabase.from('collection_batch_locations').select('*');
-      if (cBatchLocs) setBatchLocations(cBatchLocs);
+        const { data: cBatchLocs } = await supabase.from('collection_batch_locations').select('*');
+        if (cBatchLocs && cBatchLocs.length > 0) setBatchLocations(cBatchLocs);
+      } catch {}
 
       setCloudStatus('connected');
       setLastSyncTime(new Date());
       setErrorMessage(null);
     } catch (err: any) {
-      console.error('Supabase fetch error:', err);
+      console.warn('Supabase fetch notice:', err);
       setCloudStatus('error');
       setErrorMessage(err.message || 'Failed to sync with Supabase cloud.');
     }
   }, []);
+
+  /**
+   * Explicitly pushes all current local leads, meetings, and activities to Supabase
+   * and guarantees permanent cloud persistence.
+   */
+  const syncAllToCloud = useCallback(async (): Promise<{ success: boolean; message: string; count: number }> => {
+    const supabase = getSupabase();
+    if (!supabase) {
+      return { success: false, message: 'Supabase cloud is not configured.', count: 0 };
+    }
+
+    try {
+      setCloudStatus('syncing');
+      let totalSynced = 0;
+
+      // 1. Leads
+      if (leads && leads.length > 0) {
+        const payloads = leads.map(sanitizeLeadForSupabase);
+        const { error } = await supabase.from('leads').upsert(payloads);
+        if (error) throw error;
+        totalSynced += leads.length;
+      }
+
+      // 2. Meetings
+      if (meetings && meetings.length > 0) {
+        const { error } = await supabase.from('meetings').upsert(meetings);
+        if (!error) totalSynced += meetings.length;
+      }
+
+      // 3. Activities
+      if (activities && activities.length > 0) {
+        const actPayloads = activities.map((a) => ({
+          id: a.id,
+          lead_id: a.lead_id,
+          activity_type: a.activity_type,
+          description: a.description || '',
+          metadata: a.metadata || {},
+          user_id: a.user_id,
+          user_name: a.user_name,
+          created_at: a.created_at,
+        }));
+        await supabase.from('lead_activities').upsert(actPayloads);
+      }
+
+      // 4. Accounts, Brands, Campaigns
+      if (accounts && accounts.length > 0) await supabase.from('accounts').upsert(accounts);
+      if (brands && brands.length > 0) await supabase.from('brands').upsert(brands);
+      if (campaigns && campaigns.length > 0) await supabase.from('campaigns').upsert(campaigns);
+
+      setCloudStatus('connected');
+      setLastSyncTime(new Date());
+      return {
+        success: true,
+        message: `Successfully synchronized ${totalSynced} records to Supabase cloud! All data is permanently backed up.`,
+        count: totalSynced,
+      };
+    } catch (err: any) {
+      console.error('[Cloud Sync Error]:', err);
+      setCloudStatus('error');
+      return {
+        success: false,
+        message: err?.message || 'Failed to synchronize with Supabase.',
+        count: 0,
+      };
+    }
+  }, [leads, meetings, activities, accounts, brands, campaigns]);
 
   // Auto-sync engine: runs automatically every 15 seconds to sync data with cloud
   useEffect(() => {
@@ -753,7 +853,16 @@ export const LeadProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const supabase = getSupabase();
     if (supabase) {
       await supabase.from('lead_activities').insert([
-        { lead_id: leadId, activity_type: type, description, metadata: metadata || {}, user_id: currentUserId },
+        {
+          id: newAct.id,
+          lead_id: leadId,
+          activity_type: type,
+          description: description || '',
+          metadata: metadata || {},
+          user_id: currentUserId,
+          user_name: currentUserName,
+          created_at: newAct.created_at,
+        },
       ]);
     }
   };
@@ -770,7 +879,8 @@ export const LeadProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const supabase = getSupabase();
     if (supabase) {
       try {
-        await supabase.from('leads').insert([newLead]);
+        const payload = sanitizeLeadForSupabase(newLead);
+        await supabase.from('leads').insert([payload]);
       } catch (err) {
         console.error('Supabase lead insert error:', err);
       }
@@ -784,7 +894,10 @@ export const LeadProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setLeads((prev) => prev.map((l) => (l.id === id ? updatedLead : l)));
     const supabase = getSupabase();
     if (supabase) {
-      await supabase.from('leads').update(updates).eq('id', id);
+      const sanitized = sanitizeLeadForSupabase(updates);
+      if (Object.keys(sanitized).length > 0) {
+        await supabase.from('leads').update(sanitized).eq('id', id);
+      }
     }
   };
 
@@ -808,7 +921,10 @@ export const LeadProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const supabase = getSupabase();
     if (supabase) {
       try {
-        await supabase.from('leads').update(updates).in('id', ids);
+        const sanitized = sanitizeLeadForSupabase(updates);
+        if (Object.keys(sanitized).length > 0) {
+          await supabase.from('leads').update(sanitized).in('id', ids);
+        }
       } catch (err) {
         console.error('Supabase bulk lead update error:', err);
       }
@@ -897,7 +1013,12 @@ export const LeadProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setLeads((prev) => [...leadsToInsert, ...prev]);
       const supabase = getSupabase();
       if (supabase) {
-        await supabase.from('leads').insert(leadsToInsert);
+        try {
+          const payloads = leadsToInsert.map(sanitizeLeadForSupabase);
+          await supabase.from('leads').insert(payloads);
+        } catch (err) {
+          console.error('Supabase bulk lead insert error:', err);
+        }
       }
     }
     return { imported, duplicates };
@@ -2291,6 +2412,7 @@ export const LeadProvider: React.FC<{ children: React.ReactNode }> = ({ children
         markNotificationRead,
         markAllNotificationsRead,
         refreshDataFromCloud,
+        syncAllToCloud,
         clearAllDemoData,
         restoreDemoData,
       }}

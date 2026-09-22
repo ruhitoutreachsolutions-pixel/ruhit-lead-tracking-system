@@ -96,3 +96,35 @@ export async function testSupabaseConnection(
     };
   }
 }
+
+/**
+ * Strip client-only or non-existent schema properties before sending to Supabase
+ * to prevent PostgREST 400 Bad Request errors (such as missing 'tags' column).
+ */
+export function sanitizeLeadForSupabase(lead: Record<string, any>): Record<string, any> {
+  const allowedKeys = new Set([
+    'id', 'email', 'first_name', 'last_name', 'company_name',
+    'whatsapp_number', 'alternative_phone', 'city', 'country', 'notes',
+    'source', 'priority', 'list_ids', 'campaign_id', 'campaign_name',
+    'brand_id', 'brand_name', 'account_id', 'account_name',
+    'assigned_user_id', 'assigned_user_name',
+    'email_1', 'email_2', 'email_3',
+    'email_1_date', 'email_2_date', 'email_3_date',
+    'whatsapp_followup_stage', 'interested_email_followup_stage',
+    'is_interested', 'interested_at',
+    'is_meeting_scheduled', 'meeting_scheduled_at',
+    'is_meeting_done', 'meeting_done_at',
+    'meeting_count_type', 'meeting_count_at',
+    'is_pending', 'pending_at',
+    'meeting_date', 'meeting_time', 'meeting_timezone', 'meeting_type', 'meeting_link',
+    'created_at', 'updated_at'
+  ]);
+
+  const sanitized: Record<string, any> = {};
+  for (const [key, value] of Object.entries(lead)) {
+    if (allowedKeys.has(key) && value !== undefined) {
+      sanitized[key] = value;
+    }
+  }
+  return sanitized;
+}

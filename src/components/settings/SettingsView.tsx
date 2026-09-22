@@ -15,7 +15,8 @@ import {
   AlertCircle,
   Clock,
   Database,
-  RotateCcw
+  RotateCcw,
+  Upload
 } from 'lucide-react';
 import { useLeads } from '../../context/LeadContext';
 import { useAuth } from '../../context/AuthContext';
@@ -45,6 +46,7 @@ export const SettingsView: React.FC = () => {
     updateCampaign,
     deleteCampaign,
     refreshDataFromCloud,
+    syncAllToCloud,
     clearAllDemoData,
     restoreDemoData,
     cloudStatus
@@ -52,6 +54,8 @@ export const SettingsView: React.FC = () => {
   const { currentUser } = useAuth();
 
   const [activeSection, setActiveSection] = useState<'accounts' | 'brands' | 'campaigns' | 'cloud' | 'export'>('accounts');
+  const [isSyncingAll, setIsSyncingAll] = useState(false);
+  const [syncResult, setSyncResult] = useState<{ success: boolean; message: string } | null>(null);
 
   // Supabase Config State
   const initialConfig = getSupabaseConfig();
@@ -870,6 +874,53 @@ export const SettingsView: React.FC = () => {
             <p className="text-xs text-[#7B7B7B] mt-1">
               Connect your free or production Supabase project. Enter your Project URL and public Anon Key below.
             </p>
+          </div>
+
+          {/* Permanent Cloud Backup & Sync Card */}
+          <div className="p-4 bg-[#0A1926] border border-[#00C2FF]/40 rounded-xl space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <div className="font-semibold text-white flex items-center gap-2">
+                  <Cloud className="w-4 h-4 text-[#00C2FF]" />
+                  <span>Permanent Cloud Database Backup</span>
+                </div>
+                <p className="text-[11px] text-[#94A3B8] mt-1">
+                  Upload and backup all your current leads ({leads.length}), meetings ({meetings.length}), and activities ({activities.length}) directly into your Supabase database so they will NEVER be cleared or wiped out by your browser.
+                </p>
+              </div>
+              <button
+                type="button"
+                disabled={isSyncingAll}
+                onClick={async () => {
+                  setIsSyncingAll(true);
+                  setSyncResult(null);
+                  const res = await syncAllToCloud();
+                  setIsSyncingAll(false);
+                  setSyncResult(res);
+                }}
+                className="px-4 py-2 bg-[#00E5A0] hover:bg-[#00C28A] text-black font-semibold rounded-lg text-xs transition-all shadow-md shrink-0 flex items-center justify-center space-x-1.5 disabled:opacity-50 whitespace-nowrap"
+              >
+                <Upload className="w-3.5 h-3.5" />
+                <span>{isSyncingAll ? 'Backing Up to Cloud...' : 'Backup All to Supabase Now'}</span>
+              </button>
+            </div>
+
+            {syncResult && (
+              <div
+                className={`p-3 rounded-lg border text-xs flex items-center space-x-2 ${
+                  syncResult.success
+                    ? 'bg-[#00E5A0]/10 border-[#00E5A0]/40 text-[#00E5A0]'
+                    : 'bg-red-950/40 border-red-800/60 text-red-300'
+                }`}
+              >
+                {syncResult.success ? (
+                  <Check className="w-4 h-4 shrink-0" />
+                ) : (
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                )}
+                <span>{syncResult.message}</span>
+              </div>
+            )}
           </div>
 
           <form onSubmit={handleTestAndSaveCloud} className="space-y-4">
