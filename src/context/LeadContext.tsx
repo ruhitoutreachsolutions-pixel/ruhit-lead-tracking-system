@@ -42,7 +42,7 @@ import {
   INITIAL_COLLECTION_LOCATIONS,
   INITIAL_COLLECTION_BATCHES,
 } from '../lib/mockData';
-import { getSupabase, getSupabaseConfig, sanitizeLeadForSupabase } from '../lib/supabase';
+import { getSupabase, getSupabaseConfig, sanitizeLeadForSupabase, sanitizeMeetingForSupabase } from '../lib/supabase';
 import { showDesktopNotification } from '../lib/notifications';
 import { useAuth } from './AuthContext';
 import { saveCollection, loadCollection, clearAllStores, STORES } from '../lib/indexedDb';
@@ -584,7 +584,7 @@ export const LeadProvider: React.FC<{ children: React.ReactNode }> = ({ children
           try {
             const parsedMtgs = JSON.parse(localMtgsSaved);
             if (Array.isArray(parsedMtgs) && parsedMtgs.length > 0) {
-              await supabase.from('meetings').upsert(parsedMtgs);
+              await supabase.from('meetings').upsert(parsedMtgs.map(sanitizeMeetingForSupabase));
             }
           } catch {}
         }
@@ -664,7 +664,7 @@ export const LeadProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       // 2. Meetings
       if (meetings && meetings.length > 0) {
-        const { error } = await supabase.from('meetings').upsert(meetings);
+        const { error } = await supabase.from('meetings').upsert(meetings.map(sanitizeMeetingForSupabase));
         if (!error) totalSynced += meetings.length;
       }
 
@@ -1079,7 +1079,7 @@ export const LeadProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setMeetings((prev) => [newMeeting, ...prev]);
     const supabase = getSupabase();
     if (supabase) {
-      await supabase.from('meetings').insert([newMeeting]);
+      await supabase.from('meetings').insert([sanitizeMeetingForSupabase(newMeeting)]);
     }
 
     await recordActivityInternal(
@@ -1117,11 +1117,10 @@ export const LeadProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const supabase = getSupabase();
     if (supabase) {
-      await supabase.from('meetings').update({
+      await supabase.from('meetings').update(sanitizeMeetingForSupabase({
         status: 'done',
-        outcome: outcome === 'YES' ? 'meeting_count_yes' : outcome === 'NO' ? 'meeting_count_no' : 'pending',
-        updated_at: now,
-      }).eq('lead_id', leadId);
+        notes: note,
+      })).eq('lead_id', leadId);
     }
 
     await recordActivityInternal(leadId, 'Meeting Done', note || 'Meeting completed successfully');
@@ -1225,7 +1224,7 @@ export const LeadProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setMeetings((prev) => prev.map((m) => (m.id === meetingId ? { ...m, ...updates, updated_at: new Date().toISOString() } : m)));
     const supabase = getSupabase();
     if (supabase) {
-      await supabase.from('meetings').update(updates).eq('id', meetingId);
+      await supabase.from('meetings').update(sanitizeMeetingForSupabase(updates)).eq('id', meetingId);
     }
   };
 
@@ -1252,7 +1251,7 @@ export const LeadProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setMeetings((prev) => [newMeeting, ...prev]);
     const supabase = getSupabase();
     if (supabase) {
-      await supabase.from('meetings').insert([newMeeting]);
+      await supabase.from('meetings').insert([sanitizeMeetingForSupabase(newMeeting)]);
     }
 
     await recordActivityInternal(

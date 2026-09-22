@@ -128,3 +128,24 @@ export function sanitizeLeadForSupabase(lead: Record<string, any>): Record<strin
   }
   return sanitized;
 }
+
+/**
+ * Strip client-only or non-existent schema properties before sending to Supabase
+ * to prevent PostgREST 400 Bad Request errors for meetings.
+ */
+export function sanitizeMeetingForSupabase(meeting: Record<string, any>): Record<string, any> {
+  const allowedKeys = new Set([
+    'id', 'lead_id', 'lead_name', 'lead_company', 'lead_email', 'lead_whatsapp',
+    'campaign_name', 'brand_name', 'account_name', 'assigned_user_name',
+    'scheduled_at', 'duration_minutes', 'status', 'meeting_type', 'meeting_link',
+    'notes', 'created_at'
+  ]);
+
+  const sanitized: Record<string, any> = {};
+  for (const [key, value] of Object.entries(meeting)) {
+    if (allowedKeys.has(key) && value !== undefined) {
+      sanitized[key] = value;
+    }
+  }
+  return sanitized;
+}
